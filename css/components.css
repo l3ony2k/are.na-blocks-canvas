@@ -245,6 +245,11 @@
   display: none;
 }
 
+#more-button,
+#more-menu {
+  display: none;
+}
+
 #more-menu {
   position: absolute;
   top: 100%;
@@ -252,15 +257,10 @@
   background-color: var(--header-bg);
   border: 1px solid var(--header-border);
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  display: none;
   flex-direction: column;
   padding: 5px;
   gap: 5px;
   z-index: 10002;
-}
-
-#more-menu.show {
-  display: flex;
 }
 
 #more-menu button {
@@ -309,9 +309,6 @@
 
   #more-button {
     order: 4;
-  }
-
-  .mobile-only {
     display: flex;
   }
 
@@ -329,6 +326,10 @@
     padding: 0 12px;
     font-size: 14px;
     margin: 2px;
+  }
+
+  #more-menu.show {
+    display: flex;
   }
 
   #goto-button:active,
