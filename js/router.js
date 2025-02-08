@@ -33,7 +33,7 @@ class Router {
     document.getElementById('log-output').style.display = 'block';
     document.getElementById('log-output').innerHTML = '';
 
-    document.title = `${slug} | are.na blocks by lok`;
+    document.title = `${slug} | are.na blocks canvas`;
 
     if (addToHistory) {
       history.pushState({ slug }, '', `#${slug}`);

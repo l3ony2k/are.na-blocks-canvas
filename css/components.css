@@ -27,7 +27,6 @@
 #header-bar-logo svg {
   width: 20px;
   height: 20px;
-  margin-right: 5px;
 }
 
 #header-bar-logo svg path {
@@ -45,7 +44,12 @@
   font-size: 14px;
 }
 
-#goto-button {
+#goto-button,
+#tile-button,
+#theme-toggle,
+#about-button,
+#more-button,
+.more-menu button {
   height: 24px;
   padding: 0 10px;
   background-color: var(--button-bg);
@@ -54,9 +58,19 @@
   cursor: pointer;
   font-family: monospace;
   font-size: 14px;
+  transition: all 0.2s ease;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-#goto-button:hover {
+#goto-button:hover,
+#tile-button:hover,
+#theme-toggle:hover,
+#about-button:hover,
+#more-button:hover,
+.more-menu button:hover {
   background-color: var(--button-hover);
 }
 
@@ -227,83 +241,135 @@
   text-decoration: underline;
 }
 
-#theme-toggle {
-  cursor: pointer;
-  padding: 0 8px;
-  font-size: 12px;
-  background: var(--button-bg);
+.mobile-only {
+  display: none;
+}
+
+#more-menu {
+  position: absolute;
+  top: 100%;
+  right: 5px;
+  background-color: var(--header-bg);
+  border: 1px solid var(--header-border);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  display: none;
+  flex-direction: column;
+  padding: 5px;
+  gap: 5px;
+  z-index: 10002;
+}
+
+#more-menu.show {
+  display: flex;
+}
+
+#more-menu button {
+  width: 100%;
+  background-color: var(--button-bg);
   border: 1px solid var(--block-border);
   color: var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: monospace;
-  height: 24px;
-  min-width: 60px;
-  text-transform: lowercase;
 }
 
-#theme-toggle:hover {
-  background: var(--button-hover);
-}
-
-#tile-button {
-  cursor: pointer;
-  padding: 0 8px;
-  font-size: 12px;
-  background: var(--button-bg);
-  border: 1px solid var(--block-border);
-  color: var(--text-color);
-  font-family: monospace;
-  height: 24px;
-  min-width: 60px;
-  text-transform: lowercase;
-}
-
-#tile-button:hover {
-  background: var(--button-hover);
-}
-
-#about-button {
-  cursor: pointer;
-  padding: 0 8px;
-  font-size: 12px;
-  background: var(--button-bg);
-  border: 1px solid var(--block-border);
-  color: var(--text-color);
-  font-family: monospace;
-  height: 24px;
-  min-width: 60px;
-}
-
-#about-button:hover {
-  background: var(--button-hover);
+#more-menu button:hover {
+  background-color: var(--button-hover);
 }
 
 @media (max-width: 768px) {
   #header-bar {
-    height: 40px;
-    padding: 5px 10px;
+    height: auto;
+    min-height: 40px;
+    padding: 5px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 5px;
+    position: relative;
   }
-  
-  #channel-slug-input,
-  #goto-button,
+
+  #header-bar-logo {
+    order: 1;
+    margin: 0 5px;
+  }
+
+  #channel-slug-input {
+    order: 2;
+    flex: 1;
+    min-width: 120px;
+    height: 32px;
+    font-size: 16px;
+    padding: 0 8px;
+  }
+
+  #goto-button {
+    order: 3;
+  }
+
+  #more-button {
+    order: 4;
+  }
+
+  .mobile-only {
+    display: flex;
+  }
+
+  #tile-button,
   #theme-toggle,
   #about-button {
+    display: none;
+  }
+
+  #goto-button,
+  #more-button,
+  #more-menu button {
     height: 32px;
-    min-width: 44px;
+    min-width: 32px;
+    padding: 0 12px;
+    font-size: 14px;
+    margin: 2px;
   }
-  
-  #header-bar-logo svg {
-    width: 24px;
-    height: 24px;
-  }
-  
+
   #goto-button:active,
-  #theme-toggle:active,
-  #about-button:active {
+  #more-button:active,
+  #more-menu button:active {
     background-color: var(--button-hover);
-    transform: scale(0.95);
   }
-  
-  #channel-slug-input:focus {
-    outline: 2px solid var(--link-color);
+
+  /* Detail View Mobile Styles */
+  #detail-view {
+    max-height: 75vh;
+  }
+
+  #detail-view-title {
+    font-size: 1.2em;
+    max-width: 60%;
+  }
+
+  #detail-view-content p {
+    font-size: 0.9rem;
+  }
+
+  #detail-view-content h2 {
+    font-size: 1.1rem;
+  }
+
+  #detail-view-content div {
+    font-size: 0.9rem;
+  }
+
+  #detail-view-meta {
+    font-size: 11px;
+  }
+
+  #channel-detail-container {
+    font-size: 0.9rem;
+  }
+
+  #channel-stats,
+  #channel-dates,
+  #channel-status {
+    font-size: 0.8em;
   }
 } 

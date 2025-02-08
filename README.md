@@ -1,6 +1,6 @@
 # Are.na Blocks Canvas
 
-A visual tool for exploring and organizing Are.na blocks in a canvas interface. This project allows users to interact with Are.na content in a more spatial and intuitive way.
+A visual tool for exploring Are.na blocks in a canvas interface. This project allows users to interact with Are.na content in a more spatial and intuitive way.
 
 ## Features
 

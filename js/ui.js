@@ -452,4 +452,38 @@ async function showCurrentChannelDetail() {
     console.error('Error fetching channel details:', error);
     detailContent.innerHTML = '<div style="padding: 20px;">Failed to load channel details</div>';
   }
-} 
+}
+
+// More button functionality
+const moreButton = document.getElementById('more-button');
+const moreMenu = document.getElementById('more-menu');
+const moreTileButton = document.getElementById('more-tile-button');
+const moreThemeButton = document.getElementById('more-theme-button');
+const moreAboutButton = document.getElementById('more-about-button');
+
+// Toggle more menu only when clicking the more button
+moreButton.addEventListener('click', (e) => {
+  e.stopPropagation();
+  moreMenu.classList.toggle('show');
+});
+
+// Link more menu buttons to original buttons' functionality
+moreTileButton.addEventListener('click', () => {
+  document.getElementById('tile-button').click();
+  // 同步更新按钮文字
+  moreTileButton.textContent = document.getElementById('tile-button').textContent;
+});
+
+moreThemeButton.addEventListener('click', () => {
+  document.getElementById('theme-toggle').click();
+  // 同步更新按钮文字
+  moreThemeButton.textContent = document.getElementById('theme-toggle').textContent;
+});
+
+moreAboutButton.addEventListener('click', () => {
+  document.getElementById('about-button').click();
+});
+
+// 初始化时同步Theme按钮文字
+const savedTheme = localStorage.getItem('theme') || 'system';
+moreThemeButton.textContent = savedTheme; 
