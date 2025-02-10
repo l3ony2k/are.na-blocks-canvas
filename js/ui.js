@@ -38,7 +38,11 @@ function getTranslateYValue(element) {
 
 function updateThemeToggleText(theme) {
   const themeToggle = document.getElementById('theme-toggle');
-  themeToggle.textContent = theme;
+  const moreThemeButton = document.getElementById('more-theme-button');
+  themeToggle.textContent = theme === 'system' ? 'sys' : theme.toLowerCase();
+  if (moreThemeButton) {
+    moreThemeButton.textContent = theme === 'system' ? 'sys' : theme.toLowerCase();
+  }
 }
 
 function closeDetailView() {
@@ -147,10 +151,16 @@ function initHeaderBar() {
   tileButton.addEventListener('click', () => {
     if (STATE.isTiled) {
       shuffleBlocks();
-      tileButton.textContent = 'Tile';
+      tileButton.textContent = 'tile';
+      if (document.getElementById('more-tile-button')) {
+        document.getElementById('more-tile-button').textContent = 'tile';
+      }
     } else {
       tileBlocks();
-      tileButton.textContent = 'Shuffle';
+      tileButton.textContent = 'mix';
+      if (document.getElementById('more-tile-button')) {
+        document.getElementById('more-tile-button').textContent = 'mix';
+      }
     }
     STATE.isTiled = !STATE.isTiled;
   });
@@ -323,7 +333,11 @@ function shuffleBlocks() {
 // Add new function to reset tile button
 function resetTileButton() {
   const tileButton = document.getElementById('tile-button');
-  tileButton.textContent = 'Tile';
+  const moreTileButton = document.getElementById('more-tile-button');
+  tileButton.textContent = 'tile';
+  if (moreTileButton) {
+    moreTileButton.textContent = 'tile';
+  }
   STATE.isTiled = false;
 }
 
@@ -470,13 +484,11 @@ moreButton.addEventListener('click', (e) => {
 // Link more menu buttons to original buttons' functionality
 moreTileButton.addEventListener('click', () => {
   document.getElementById('tile-button').click();
-  // 同步更新按钮文字
   moreTileButton.textContent = document.getElementById('tile-button').textContent;
 });
 
 moreThemeButton.addEventListener('click', () => {
   document.getElementById('theme-toggle').click();
-  // 同步更新按钮文字
   moreThemeButton.textContent = document.getElementById('theme-toggle').textContent;
 });
 
@@ -484,6 +496,5 @@ moreAboutButton.addEventListener('click', () => {
   document.getElementById('about-button').click();
 });
 
-// 初始化时同步Theme按钮文字
 const savedTheme = localStorage.getItem('theme') || 'system';
 moreThemeButton.textContent = savedTheme; 

@@ -33,12 +33,18 @@
   fill: var(--icon-color);
 }
 
+#channel-input-group {
+  display: flex;
+  flex-grow: 1;
+}
+
 #channel-slug-input {
   flex-grow: 1;
   height: 24px;
   background-color: var(--block-bg);
   color: var(--text-color);
   border: 1px solid var(--block-border);
+  border-right: none;
   padding: 0 5px;
   font-family: monospace;
   font-size: 14px;
@@ -51,7 +57,7 @@
 #more-button,
 .more-menu button {
   height: 24px;
-  padding: 0 10px;
+  padding: 0 5px;
   background-color: var(--button-bg);
   border: 1px solid var(--block-border);
   color: var(--text-color);
@@ -59,7 +65,7 @@
   font-family: monospace;
   font-size: 14px;
   transition: all 0.2s ease;
-  min-width: 40px;
+  width: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -294,17 +300,26 @@
     margin: 0 5px;
   }
 
-  #channel-slug-input {
+  #channel-input-group {
     order: 2;
     flex: 1;
     min-width: 120px;
+    display: flex;
+    margin: 0;
+  }
+
+  #channel-slug-input {
     height: 32px;
     font-size: 16px;
     padding: 0 8px;
+    flex: 1;
+    margin: 0;
   }
 
   #goto-button {
     order: 3;
+    height: 32px;
+    margin: 0;
   }
 
   #more-button {
@@ -325,7 +340,7 @@
     min-width: 32px;
     padding: 0 12px;
     font-size: 14px;
-    margin: 2px;
+    width: auto;
   }
 
   #more-menu.show {
