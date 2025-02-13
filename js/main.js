@@ -56,7 +56,7 @@ async function fetchChannelBlocks(slug) {
   STATE.cachedBlockOrder = [];
   const blockWidth = 200, blockHeight = 300;
   const minX = 0, minY = 0;
-  const maxX = window.innerWidth - blockWidth, maxY = window.innerHeight - blockHeight - 30;
+  const maxX = window.innerWidth - blockWidth, maxY = window.innerHeight - blockHeight/3;
   allBlocks.forEach(block => {
     const x = minX + Math.random()*(maxX - minX);
     const y = minY + Math.random()*(maxY - minY);

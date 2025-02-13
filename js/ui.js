@@ -231,7 +231,7 @@ function tileBlocks() {
   const blocks = Array.from(document.querySelectorAll('.block'));
   const blockWidth = 200;
   const blockHeight = 300;
-  const headerHeight = 30;
+  const headerHeight = 0; // used to be 30, seems like not necessary
   
   // 计算可用空间
   const availableWidth = window.innerWidth - blockWidth;
@@ -294,7 +294,7 @@ function shuffleBlocks() {
   const blocks = Array.from(document.querySelectorAll('.block'));
   const blockWidth = 200;
   const blockHeight = 300;
-  const headerHeight = 30;
+  const headerHeight = 0; // used to be 30, seems like not necessary
   
   const minX = 0;
   const minY = 0;

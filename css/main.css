@@ -42,12 +42,16 @@ blockquote {
   cursor: grab;
   max-width: 200px;
   word-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -moz-hyphens: auto;
+  -ms-hyphens: auto;
   will-change: transform;
   max-height: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
   z-index: 1;
-  top: 30px;
+  top: 30px; /* this need to be 30px, this one is necessary */
 }
 
 .block.channel-block {
@@ -84,6 +88,11 @@ blockquote {
   margin: 0;
   font-size: 1.5em;
   line-height: 1.2;
+  word-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -moz-hyphens: auto;
+  -ms-hyphens: auto;
 }
 
 .block img {
