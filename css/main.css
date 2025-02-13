@@ -39,7 +39,7 @@ blockquote {
   background-color: var(--block-bg);
   color: var(--text-color);
   box-shadow: 3px 3px 5px rgba(0,0,0,0.3);
-  cursor: grab;
+  cursor: move;
   max-width: 200px;
   word-wrap: break-word;
   hyphens: auto;
@@ -104,7 +104,7 @@ blockquote {
 }
 
 .dragging {
-  cursor: grabbing !important;
+  cursor: move !important;
   opacity: 0.8;
 }
 
