@@ -12,7 +12,7 @@
   z-index: 10001;
   gap: 10px;
   font-size: 14px;
-  font-family: monospace;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   user-select: none;
 }
 
@@ -46,7 +46,7 @@
   border: 1px solid var(--block-border);
   border-right: none;
   padding: 0 5px;
-  font-family: monospace;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   font-size: 14px;
 }
 
@@ -62,7 +62,7 @@
   border: 1px solid var(--block-border);
   color: var(--text-color);
   cursor: pointer;
-  font-family: monospace;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   font-size: 14px;
   transition: all 0.2s ease;
   width: 50px;
@@ -91,7 +91,7 @@
   width: 100%;
   padding: 5px 10px;
   font-size: 12px;
-  font-family: monospace;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   color: var(--log-text);
   background-color: var(--log-bg);
   z-index: 99;
@@ -230,7 +230,7 @@
   border-top: 1px solid var(--detail-border);
   padding: 10px;
   font-size: 12px;
-  font-family: monospace;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   z-index: 10001;
 }
 
@@ -277,7 +277,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: monospace;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
 }
 
 #more-menu button:hover {

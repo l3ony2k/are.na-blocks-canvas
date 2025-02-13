@@ -3,7 +3,7 @@
 }
 
 body {
-  font-family: monospace;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   background-color: var(--bg-color);
   color: var(--text-color);
   overflow: hidden;
@@ -163,7 +163,7 @@ blockquote {
   background-color: var(--button-bg);
   border: 1px solid var(--block-border);
   color: var(--text-color);
-  font-family: monospace;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   align-self: flex-start;
 }
 
