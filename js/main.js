@@ -16,52 +16,108 @@ async function fetchChannelInfo(slug) {
 
 async function fetchChannelBlocks(slug) {
   outputLog(`[fetchChannelBlocks] Start fetching blocks for channel "${slug}"...`);
-  let page = 1, totalBlocks = 0, loadedBlocks = 0;
   let allBlocks = [];
+  
+  // 获取频道信息
   const channelInfo = await fetchChannelInfo(slug);
   if (!channelInfo) {
     outputLog("[fetchChannelBlocks] Could not get channel info, aborting block fetching.");
     return [];
   }
-  totalBlocks = channelInfo.length;
+  
+  const totalBlocks = channelInfo.length;
   outputLog(`[fetchChannelBlocks] Channel "${slug}" has ${totalBlocks} blocks in total.`);
-  document.getElementById('loading-container').style.display = 'block';
-  document.getElementById('log-output').style.display = 'block';
-  document.getElementById('log-output').innerHTML = '';
-  document.getElementById('loading-bar').style.width = '0%';
+  
+  // 显示加载UI
+  const loadingContainer = document.getElementById('loading-container');
+  const logOutput = document.getElementById('log-output');
+  const loadingBar = document.getElementById('loading-bar');
+  
+  loadingContainer.style.display = 'block';
+  logOutput.style.display = 'block';
+  logOutput.innerHTML = '';
+  loadingBar.style.width = '0%';
 
-  while (true) {
-    const apiUrl = `https://api.are.na/v2/channels/${slug}/contents?per=100&page=${page}`;
-    outputLog(`[fetchChannelBlocks] Requesting page ${page}, URL: ${apiUrl}`);
-    try {
-      const response = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${CONFIG.accessToken}` } });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      outputLog(`[fetchChannelBlocks] Page ${page} data received, ${data.contents.length} blocks.`);
-      if (data.contents.length === 0) break;
-      allBlocks = allBlocks.concat(data.contents);
-      loadedBlocks += data.contents.length;
-      document.getElementById('loading-bar').style.width = `${(loadedBlocks/totalBlocks)*100}%`;
-      page++;
-    } catch (error) {
-      outputLog(`[fetchChannelBlocks] Error fetching channel blocks: ${error}`);
-      break;
+  try {
+    // 计算需要的页数
+    const perPage = 100;
+    const totalPages = Math.ceil(totalBlocks / perPage);
+    let loadedBlocks = 0;
+    
+    // 创建一批Promise请求
+    const pagePromises = [];
+    for (let page = 1; page <= totalPages; page++) {
+      const apiUrl = `https://api.are.na/v2/channels/${slug}/contents?per=${perPage}&page=${page}`;
+      outputLog(`[fetchChannelBlocks] Requesting page ${page}, URL: ${apiUrl}`);
+      
+      const pagePromise = fetch(apiUrl, { 
+        headers: { 'Authorization': `Bearer ${CONFIG.accessToken}` } 
+      })
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return response.json();
+      })
+      .then(data => {
+        outputLog(`[fetchChannelBlocks] Page ${page} data received, ${data.contents.length} blocks.`);
+        loadedBlocks += data.contents.length;
+        loadingBar.style.width = `${(loadedBlocks/totalBlocks)*100}%`;
+        return data.contents;
+      });
+      
+      pagePromises.push(pagePromise);
     }
+    
+    // 使用Promise.allSettled确保即使某些请求失败，我们也能获取尽可能多的数据
+    const results = await Promise.allSettled(pagePromises);
+    
+    // 处理结果
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        allBlocks = allBlocks.concat(result.value);
+      } else {
+        outputLog(`[fetchChannelBlocks] Error fetching page ${index + 1}: ${result.reason}`);
+      }
+    });
+  } catch (error) {
+    outputLog(`[fetchChannelBlocks] Error fetching channel blocks: ${error}`);
+  } finally {
+    // 清理UI
+    loadingContainer.style.display = 'none';
+    logOutput.style.display = 'none';
   }
-  document.getElementById('loading-container').style.display = 'none';
-  document.getElementById('log-output').style.display = 'none';
+  
   outputLog(`[fetchChannelBlocks] Blocks for channel "${slug}" fetched, ${allBlocks.length} blocks in total.`);
 
+  // 初始化区块位置
   STATE.cachedBlockPositions = {};
   STATE.cachedBlockOrder = [];
-  const blockWidth = 200, blockHeight = 300;
-  const minX = 0, minY = 0;
-  const maxX = window.innerWidth - blockWidth, maxY = window.innerHeight - blockHeight/2;
+  
+  const viewport = {
+    width: window.innerWidth,
+    height: window.innerHeight
+  };
+  
+  const blockDimensions = {
+    width: 200,
+    height: 300
+  };
+  
+  const bounds = {
+    minX: 0,
+    minY: 0,
+    maxX: viewport.width - blockDimensions.width,
+    maxY: viewport.height - blockDimensions.height/2
+  };
+  
+  // 为所有区块分配随机位置
   allBlocks.forEach(block => {
-    const x = minX + Math.random()*(maxX - minX);
-    const y = minY + Math.random()*(maxY - minY);
-    const rotation = Math.random()*20 - 10;
-    STATE.cachedBlockPositions[block.id] = { x: x, y: y, rotation: rotation };
+    const position = {
+      x: bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+      y: bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
+      rotation: Math.random() * 20 - 10  // -10 到 +10 度之间的随机旋转
+    };
+    
+    STATE.cachedBlockPositions[block.id] = position;
     STATE.cachedBlockOrder.push(block.id);
   });
 
