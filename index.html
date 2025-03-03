@@ -21,8 +21,8 @@
   <!-- Theme Color for browsers and PWAs -->
   <meta name="theme-color" content="#f0f0f0" id="theme-color-meta">
   <meta name="apple-mobile-web-app-status-bar-style" content="default" id="ios-status-bar-meta">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  
+  <meta name="mobile-web-app-capable" content="yes">
+
   <!-- Open Graph Meta Tags -->
   <meta property="og:title" content="are.na blocks canvas">
   <meta property="og:description" content="a visual tool for exploring are.na blocks in a canvas interface. allows you to interact with are.na blocks in a more spatial and intuitive way.">
@@ -101,8 +101,19 @@
     </div>
     <div id="detail-view-link"></div>
     <div id="detail-view-info"></div>
-    <div id="detail-view-meta"></div>
+  <div id="detail-view-meta"></div>
+</div>
+
+<div id="block-limit-warning" class="modal-dialog">
+  <div class="modal-content">
+    <h3>Block Limit Reached</h3>
+    <p>This channel has more than <span id="block-limit-count"></span> blocks. Loading more may affect performance on your device.</p>
+    <div class="button-group">
+      <button id="load-more-blocks-btn">Load More</button>
+      <button id="cancel-load-more-btn">Cancel</button>
+    </div>
   </div>
+</div>
 
   <script src="js/config.js"></script>
   <script src="js/db.js"></script>

@@ -361,15 +361,193 @@ function cleanupOffscreenBlocks() {
   }
 }
 
+// Function to dynamically create the warning dialog if it doesn't exist
+function createBlockLimitWarningDialog() {
+  console.log("[createBlockLimitWarningDialog] Creating dialog dynamically");
+  
+  // Check if it already exists
+  if (document.getElementById('block-limit-warning')) {
+    console.log("[createBlockLimitWarningDialog] Dialog already exists, not creating");
+    return;
+  }
+  
+  // Create dialog container
+  const dialog = document.createElement('div');
+  dialog.id = 'block-limit-warning';
+  dialog.className = 'modal-dialog';
+  
+  // Create dialog content
+  const content = document.createElement('div');
+  content.className = 'modal-content';
+  
+  // Add title
+  const title = document.createElement('h3');
+  title.textContent = 'Block Limit Reached';
+  
+  // Add description
+  const description = document.createElement('p');
+  description.innerHTML = 'This channel has more than <span id="block-limit-count"></span> blocks. Loading more may affect performance on your device.';
+  
+  // Add button group
+  const buttonGroup = document.createElement('div');
+  buttonGroup.className = 'button-group';
+  
+  // Add Load More button
+  const loadMoreBtn = document.createElement('button');
+  loadMoreBtn.id = 'load-more-blocks-btn';
+  loadMoreBtn.textContent = 'Load More';
+  
+  // Add Cancel button
+  const cancelBtn = document.createElement('button');
+  cancelBtn.id = 'cancel-load-more-btn';
+  cancelBtn.textContent = 'Cancel';
+  
+  // Assemble the dialog
+  buttonGroup.appendChild(loadMoreBtn);
+  buttonGroup.appendChild(cancelBtn);
+  content.appendChild(title);
+  content.appendChild(description);
+  content.appendChild(buttonGroup);
+  dialog.appendChild(content);
+  
+  // Add to the document
+  document.body.appendChild(dialog);
+  
+  console.log("[createBlockLimitWarningDialog] Dialog created and added to DOM");
+  
+  // Initialize event listeners
+  initBlockLimitWarningListeners();
+  
+  return dialog;
+}
+
+// Function to set up event listeners for the dialog
+function initBlockLimitWarningListeners() {
+  const warningDialog = document.getElementById('block-limit-warning');
+  const loadMoreButton = document.getElementById('load-more-blocks-btn');
+  const cancelButton = document.getElementById('cancel-load-more-btn');
+  
+  if (!warningDialog || !loadMoreButton || !cancelButton) {
+    console.error("[initBlockLimitWarningListeners] Could not find dialog elements");
+    return;
+  }
+  
+  // Make sure any click inside doesn't propagate to body
+  warningDialog.addEventListener('click', function(event) {
+    event.stopPropagation();
+  });
+  
+  // Prevent clicks inside the modal from closing it
+  const modalContent = warningDialog.querySelector('.modal-content');
+  if (modalContent) {
+    modalContent.addEventListener('click', function(event) {
+      event.stopPropagation();
+    });
+  }
+  
+  // Prevent the dialog from disappearing when clicking outside
+  warningDialog.addEventListener('mousedown', function(event) {
+    // Only prevent propagation if clicking the dialog background, not content
+    if (event.target === warningDialog) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+  
+  // Set up load more button
+  loadMoreButton.addEventListener('click', function() {
+    console.log("[loadMoreButton] User clicked Load More");
+    CONFIG.userOverrideBlockLimit = true;
+    warningDialog.style.display = 'none';
+    
+    // Reset the load interval to continue loading blocks
+    if (STATE.loadIntervalId === null) {
+      STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
+    }
+    
+    // Load a batch immediately
+    loadMoreBlocks();
+  });
+  
+  // Set up cancel button
+  cancelButton.addEventListener('click', function() {
+    console.log("[cancelButton] User clicked Cancel");
+    warningDialog.style.display = 'none';
+    CONFIG.userOverrideBlockLimit = false;
+  });
+  
+  console.log("[initBlockLimitWarningListeners] Event listeners set up");
+}
+
+function showBlockLimitWarning() {
+  // Set up the warning dialog or create it if it doesn't exist
+  let warningDialog = document.getElementById('block-limit-warning');
+  
+  if (!warningDialog) {
+    warningDialog = createBlockLimitWarningDialog();
+    if (!warningDialog) {
+      console.error("[Error] Could not create block limit warning dialog");
+      return;
+    }
+  }
+  
+  const blockLimitCount = document.getElementById('block-limit-count');
+  const loadMoreButton = document.getElementById('load-more-blocks-btn');
+  const cancelButton = document.getElementById('cancel-load-more-btn');
+  
+  // Update the limit count
+  const currentLimit = isMobileDevice() ? CONFIG.maxBlocks : CONFIG.maxBlocks;
+  if (blockLimitCount) {
+    blockLimitCount.textContent = currentLimit;
+  }
+  
+  // Display the dialog
+  warningDialog.classList.add('show');
+  warningDialog.style.display = 'flex';
+  
+  // Set up event listeners for the buttons
+  loadMoreButton.onclick = function() {
+    CONFIG.userOverrideBlockLimit = true;
+    warningDialog.style.display = 'none';
+    
+    // Reset the load interval to continue loading blocks
+    if (STATE.loadIntervalId === null) {
+      STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
+    }
+    
+    // Load a batch immediately
+    loadMoreBlocks();
+  };
+  
+  cancelButton.onclick = function() {
+    warningDialog.style.display = 'none';
+    CONFIG.userOverrideBlockLimit = false;
+  };
+}
+
 function loadMoreBlocks() {
   if (STATE.isLoading) return;
   STATE.isLoading = true;
   
   const isMobile = isMobileDevice();
+  const currentBlockCount = document.querySelectorAll('.block').length;
+  const maxAllowedBlocks = CONFIG.userOverrideBlockLimit ? 
+    CONFIG.maxBlocksAfterOverride : CONFIG.maxBlocks;
   
-  // On mobile, check if we've reached the maximum number of blocks to display
-  if (isMobile && document.querySelectorAll('.block').length >= CONFIG.maxBlocks) {
-    outputLog(`[loadMoreBlocks] Mobile block limit reached (${CONFIG.maxBlocks}), stopping auto-load`);
+  // If we've reached the initial limit but user hasn't made a choice yet, show warning
+  // CRITICAL FIX: Check this condition FIRST before checking if we've hit max allowed blocks
+  if (!CONFIG.userOverrideBlockLimit && currentBlockCount >= CONFIG.maxBlocks) {
+    outputLog(`[loadMoreBlocks] Initial block limit reached (${CONFIG.maxBlocks}), showing warning`);
+    showBlockLimitWarning();
+    clearInterval(STATE.loadIntervalId);
+    STATE.loadIntervalId = null;
+    STATE.isLoading = false;
+    return;
+  }
+  
+  // Check if we've reached the block limit
+  if (currentBlockCount >= maxAllowedBlocks) {
+    outputLog(`[loadMoreBlocks] Block limit reached (${maxAllowedBlocks}), stopping auto-load`);
     clearInterval(STATE.loadIntervalId);
     STATE.loadIntervalId = null;
     STATE.isLoading = false;
@@ -652,10 +830,51 @@ async function showDetailView(event) {
   document.getElementById('detail-view').style.display = 'flex';
 }
 
+// Initialize block limit warning dialog
+function initBlockLimitWarning() {
+  console.log("[initBlockLimitWarning] Initializing block limit warning dialog");
+  const warningDialog = document.getElementById('block-limit-warning');
+  const loadMoreButton = document.getElementById('load-more-blocks-btn');
+  const cancelButton = document.getElementById('cancel-load-more-btn');
+  
+  if (!warningDialog) {
+    console.error("[initBlockLimitWarning] Block limit warning dialog not found in DOM");
+    return;
+  }
+  
+  // Make sure any click inside doesn't propagate to body (which could close it)
+  warningDialog.addEventListener('click', function(event) {
+    event.stopPropagation();
+  });
+  
+  loadMoreButton.addEventListener('click', function() {
+    console.log("[loadMoreButton] User clicked Load More");
+    CONFIG.userOverrideBlockLimit = true;
+    warningDialog.style.display = 'none';
+    
+    // Reset the load interval to continue loading blocks
+    if (STATE.loadIntervalId === null) {
+      STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
+    }
+    
+    // Load a batch immediately
+    loadMoreBlocks();
+  });
+  
+  cancelButton.addEventListener('click', function() {
+    console.log("[cancelButton] User clicked Cancel");
+    warningDialog.style.display = 'none';
+    CONFIG.userOverrideBlockLimit = false;
+  });
+  
+  console.log("[initBlockLimitWarning] Block limit warning dialog initialization complete");
+}
+
 // Initialize application
 async function main() {
   initHeaderBar();
   router.init();
+  initBlockLimitWarning(); // Initialize block limit warning dialog
   
   try {
     await arenaDB.clearOldCache();

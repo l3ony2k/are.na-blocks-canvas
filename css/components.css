@@ -308,6 +308,74 @@
   background-color: var(--button-hover);
 }
 
+/* Modal Dialog Styles */
+.modal-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 10003; /* Higher than detail view */
+}
+
+.modal-content {
+  background-color: var(--detail-bg);
+  border: 3px solid var(--detail-border);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  width: 90%;
+  max-width: 400px;
+  padding: 20px;
+  text-align: center;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  color: var(--text-color);
+  font-size: 1.3em;
+}
+
+.modal-content p {
+  margin-bottom: 20px;
+  color: var(--text-color);
+  font-size: 1em;
+  line-height: 1.4;
+}
+
+.button-group {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.button-group button {
+  padding: 8px 16px;
+  background-color: var(--button-bg);
+  border: 1px solid var(--block-border);
+  color: var(--text-color);
+  cursor: pointer;
+  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+  font-size: 14px;
+  min-width: 100px;
+  transition: background-color 0.2s;
+}
+
+.button-group button:hover {
+  background-color: var(--button-hover);
+}
+
+#load-more-blocks-btn {
+  background-color: var(--channel-block-border);
+  color: white;
+}
+
+#load-more-blocks-btn:hover {
+  background-color: var(--link-color);
+}
+
 @media (max-width: 768px) {
   #header-bar {
     height: auto;
@@ -412,4 +480,23 @@
   #channel-status {
     font-size: 0.8em;
   }
-} 
+  
+  .modal-content {
+    width: 95%;
+    padding: 15px;
+  }
+  
+  .modal-content h3 {
+    font-size: 1.1em;
+  }
+  
+  .modal-content p {
+    font-size: 0.9em;
+  }
+  
+  .button-group button {
+    padding: 6px 12px;
+    font-size: 12px;
+    min-width: 80px;
+  }
+}
