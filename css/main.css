@@ -54,6 +54,17 @@ blockquote {
   top: 30px; /* this need to be 30px, this one is necessary */
 }
 
+/* Remove margin from the first paragraph in a block to maintain consistent padding */
+.block p:first-child {
+  margin-top: 0;
+}
+.block p:last-child {
+  margin-bottom: 0;
+}
+.block p {
+  margin: 0.5rem 0;
+}
+
 .block.channel-block {
   border-color: var(--channel-block-border);
   display: flex;
@@ -205,4 +216,4 @@ blockquote {
     max-width: 100%;
     margin-bottom: 20px;
   }
-} 
+}
