@@ -9,7 +9,7 @@ const CONFIG = {
   dbVersion: 2,
   cacheMaxAge: 24 * 60 * 60 * 1000, // 1 day
   memoryCheckInterval: 5000,         // Check memory usage every 5 seconds on mobile
-  maxBlocks: isMobileDevice() ? 500 : 1000, // Maximum blocks to render at once on mobile
+  maxBlocks: isMobileDevice() ? 150 : 1000, // Maximum blocks to render at once on mobile
   userOverrideBlockLimit: false,     // Whether the user has chosen to override the block limit
   additionalLoadStep: 50,            // Number of additional blocks to load when the user overrides the limit
   maxBlocksAfterOverride: isMobileDevice() ? 1000 : 5000, // Maximum blocks after user override
