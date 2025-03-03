@@ -190,6 +190,7 @@ function initHeaderBar() {
     root.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     updateThemeToggleText(newTheme);
+    updatePWAThemeColors(newTheme);
   });
 
   document.getElementById('about-button').addEventListener('click', showAboutView);
@@ -497,4 +498,52 @@ moreAboutButton.addEventListener('click', () => {
 });
 
 const savedTheme = localStorage.getItem('theme') || 'system';
-moreThemeButton.textContent = savedTheme; 
+moreThemeButton.textContent = savedTheme;
+
+// Function to update PWA theme colors for status bars and title bars
+function updatePWAThemeColors(theme) {
+  const root = document.documentElement;
+  let themeColorValue;
+  
+  // Get the current effective theme
+  if (theme === 'system') {
+    // Check if system is in dark mode
+    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    themeColorValue = isDarkMode ? '#111111' : '#f0f0f0'; 
+  } else if (theme === 'dark') {
+    themeColorValue = '#111111'; // Dark theme header color
+  } else {
+    themeColorValue = '#f0f0f0'; // Light theme header color
+  }
+  
+  // Update the theme-color meta tag
+  const themeColorMeta = document.getElementById('theme-color-meta');
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute('content', themeColorValue);
+  }
+  
+  // Update the iOS status bar style
+  const iosStatusBarMeta = document.getElementById('ios-status-bar-meta');
+  if (iosStatusBarMeta) {
+    // For dark theme use black-translucent, for light use default
+    if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      iosStatusBarMeta.setAttribute('content', 'black-translucent');
+    } else {
+      iosStatusBarMeta.setAttribute('content', 'default');
+    }
+  }
+}
+
+// Initialize theme colors when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  const savedTheme = localStorage.getItem('theme') || 'system';
+  updatePWAThemeColors(savedTheme);
+  
+  // Also listen for system color scheme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (currentTheme === 'system') {
+      updatePWAThemeColors('system');
+    }
+  });
+});
