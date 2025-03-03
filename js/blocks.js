@@ -230,8 +230,19 @@ function renderChannelBlock(element, block) {
 
 // 渲染图片块
 function renderImageBlock(element, block) {
+  // Add image-block class to help with styling
+  element.classList.add('image-block');
+  
+  // Create placeholder that will be shown until image loads
+  const placeholder = document.createElement('div');
+  placeholder.className = 'image-placeholder';
+  element.appendChild(placeholder);
+  
   const img = document.createElement('img');
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  
+  // Hide image initially until it loads
+  img.style.display = 'none';
   
   // 设置初始尺寸和缩略图
   if (block.image.thumb) {
@@ -242,6 +253,12 @@ function renderImageBlock(element, block) {
   
   img.draggable = false;
   element.appendChild(img);
+  
+  // When any version of the image loads, show it and hide placeholder
+  img.onload = function() {
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+  };
   
   // 使用 IntersectionObserver 进行懒加载
   if ('IntersectionObserver' in window) {

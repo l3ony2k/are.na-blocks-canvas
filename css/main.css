@@ -106,6 +106,31 @@ blockquote {
   -ms-hyphens: auto;
 }
 
+/* Image placeholder styling */
+.block.image-block {
+  min-width: 1px;
+  min-height: 1px;
+}
+
+.block .image-placeholder {
+  width: 200px;
+  height: 200px;
+  background-color: var(--block-bg);
+  /* border: 1px dashed var(--block-border); */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--text-color);
+  opacity: 0.7;
+  font-size: 0.9em;
+  text-align: center;
+  padding: 10px;
+}
+
+.block .image-placeholder::before {
+  content: "Loading image...";
+}
+
 .block img {
   max-width: 100%;
   height: auto;
