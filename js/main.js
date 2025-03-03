@@ -106,7 +106,7 @@ async function fetchChannelBlocks(slug) {
     minX: 0,
     minY: 0,
     maxX: viewport.width - blockDimensions.width,
-    maxY: viewport.height - blockDimensions.height/2
+    maxY: viewport.height - blockDimensions.height
   };
   
   // 为所有区块分配随机位置
