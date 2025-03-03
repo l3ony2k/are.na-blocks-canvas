@@ -500,7 +500,7 @@ moreAboutButton.addEventListener('click', () => {
 const savedTheme = localStorage.getItem('theme') || 'system';
 moreThemeButton.textContent = savedTheme;
 
-// Function to update PWA theme colors for status bars and title bars
+// Function to update theme colors for browsers and PWAs status bars and title bars
 function updatePWAThemeColors(theme) {
   const root = document.documentElement;
   let themeColorValue;
@@ -516,13 +516,13 @@ function updatePWAThemeColors(theme) {
     themeColorValue = '#f0f0f0'; // Light theme header color
   }
   
-  // Update the theme-color meta tag
+  // Update the theme-color meta tag (works for Chrome, Firefox, and other browsers)
   const themeColorMeta = document.getElementById('theme-color-meta');
   if (themeColorMeta) {
     themeColorMeta.setAttribute('content', themeColorValue);
   }
   
-  // Update the iOS status bar style
+  // Update the iOS status bar style (for both Safari mobile browser and PWA mode)
   const iosStatusBarMeta = document.getElementById('ios-status-bar-meta');
   if (iosStatusBarMeta) {
     // For dark theme use black-translucent, for light use default
@@ -531,6 +531,18 @@ function updatePWAThemeColors(theme) {
     } else {
       iosStatusBarMeta.setAttribute('content', 'default');
     }
+  }
+  
+  // Force a refresh for Safari on iOS in some cases
+  // This helps ensure the color changes apply immediately in regular browser mode
+  if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+    // Create a small style update to force a repaint
+    const dummyStyle = document.createElement('style');
+    dummyStyle.textContent = '/* */';
+    document.head.appendChild(dummyStyle);
+    setTimeout(() => {
+      document.head.removeChild(dummyStyle);
+    }, 10);
   }
 }
 
