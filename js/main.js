@@ -129,7 +129,20 @@ async function updateChannel(newSlug, forceRefresh = false) {
   resetTileButton();
   outputLog(`[Channel] Switching to: ${newSlug}`);
 
-  document.querySelectorAll('.block').forEach(block => block.remove());
+  // Clean up any existing memory monitoring
+  if (STATE.memoryMonitorId) {
+    clearInterval(STATE.memoryMonitorId);
+    STATE.memoryMonitorId = null;
+  }
+
+  document.querySelectorAll('.block').forEach(block => {
+    // Clean up any observers before removing elements
+    if (block._imageObserver) {
+      block._imageObserver.disconnect();
+    }
+    block.remove();
+  });
+
   clearInterval(STATE.loadIntervalId);
   
   STATE.channelSlugs = [newSlug];
@@ -137,6 +150,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
   STATE.currentlyDisplayedBlocks = 0;
   STATE.cachedBlockPositions = {};
   STATE.cachedBlockOrder = [];
+  STATE.visibleBlockIds = new Set(); // Track which blocks are currently visible
 
   if (!forceRefresh) {
     try {
@@ -159,32 +173,68 @@ async function updateChannel(newSlug, forceRefresh = false) {
           throw new Error('Invalid cache data structure');
         }
         
-        let renderSuccess = true;
-        STATE.cachedBlockOrder.forEach(blockId => {
-          try {
-            const block = STATE.allFetchedBlocks.find(b => b.id === blockId);
-            if (block) {
-              const blockElement = renderBlock(block);
-              if (STATE.cachedBlockPositions[block.id]) {
-                const pos = STATE.cachedBlockPositions[block.id];
-                blockElement.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotation}deg)`;
+        // On mobile, we'll load blocks progressively
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          // Start the memory monitor for mobile devices
+          startMemoryMonitoring();
+          
+          // Load only a portion of blocks initially
+          const initialBlocks = Math.min(CONFIG.blocksPerLoad, STATE.cachedBlockOrder.length);
+          STATE.cachedBlockOrder.slice(0, initialBlocks).forEach(blockId => {
+            try {
+              const block = STATE.allFetchedBlocks.find(b => b.id === blockId);
+              if (block) {
+                const blockElement = renderBlock(block);
+                if (STATE.cachedBlockPositions[block.id]) {
+                  const pos = STATE.cachedBlockPositions[block.id];
+                  blockElement.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotation}deg)`;
+                }
+                STATE.visibleBlockIds.add(blockId);
               }
+            } catch (error) {
+              console.error('Error rendering cached block:', error);
             }
-          } catch (error) {
-            renderSuccess = false;
-            console.error('Error rendering cached block:', error);
+          });
+          
+          STATE.currentlyDisplayedBlocks = initialBlocks;
+          
+          // Set up interval to load more blocks
+          STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
+        } else {
+          // On desktop, load all blocks at once (with a maximum limit if specified)
+          let renderSuccess = true;
+          const maxBlocks = CONFIG.maxBlocks || STATE.cachedBlockOrder.length;
+          const blocksToRender = STATE.cachedBlockOrder.slice(0, maxBlocks);
+          
+          blocksToRender.forEach(blockId => {
+            try {
+              const block = STATE.allFetchedBlocks.find(b => b.id === blockId);
+              if (block) {
+                const blockElement = renderBlock(block);
+                if (STATE.cachedBlockPositions[block.id]) {
+                  const pos = STATE.cachedBlockPositions[block.id];
+                  blockElement.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotation}deg)`;
+                }
+                STATE.visibleBlockIds.add(blockId);
+              }
+            } catch (error) {
+              renderSuccess = false;
+              console.error('Error rendering cached block:', error);
+            }
+          });
+          
+          if (document.querySelectorAll('.block').length === 0) {
+            throw new Error('No blocks rendered from cache');
           }
-        });
-        
-        if (document.querySelectorAll('.block').length === 0) {
-          throw new Error('No blocks rendered from cache');
-        }
 
-        if (!renderSuccess) {
-          throw new Error('Failed to render some cached blocks');
+          if (!renderSuccess) {
+            throw new Error('Failed to render some cached blocks');
+          }
+          
+          STATE.currentlyDisplayedBlocks = blocksToRender.length;
         }
         
-        STATE.currentlyDisplayedBlocks = STATE.allFetchedBlocks.length;
         outputLog(`[Cache] Successfully loaded ${STATE.currentlyDisplayedBlocks} blocks`);
         return;
       }
@@ -213,6 +263,11 @@ async function updateChannel(newSlug, forceRefresh = false) {
       outputLog('[Warning] Failed to save to cache, but blocks loaded successfully');
     }
     
+    // On mobile devices, start memory monitoring
+    if (isMobileDevice()) {
+      startMemoryMonitoring();
+    }
+    
     loadMoreBlocks();
     STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
     outputLog(`[API] Successfully loaded ${blocks.length} blocks`);
@@ -220,6 +275,152 @@ async function updateChannel(newSlug, forceRefresh = false) {
     console.error('Error fetching blocks:', error);
     outputLog(`[Error] ${error.message}`);
   }
+}
+
+// New function to handle memory monitoring on mobile devices
+function startMemoryMonitoring() {
+  // Only for mobile devices and if supported
+  if (!isMobileDevice() || !window.performance || !window.performance.memory) return;
+  
+  STATE.memoryMonitorId = setInterval(() => {
+    try {
+      // Check for high memory usage and remove elements if needed
+      if (window.performance.memory && window.performance.memory.usedJSHeapSize > 
+          window.performance.memory.jsHeapSizeLimit * 0.8) {
+        outputLog('[Memory Warning] High memory usage detected, cleaning up offscreen blocks');
+        cleanupOffscreenBlocks();
+      }
+    } catch (e) {
+      console.error('Error monitoring memory:', e);
+    }
+  }, CONFIG.memoryCheckInterval);
+}
+
+// Helper function to clean up blocks that are completely off screen
+function cleanupOffscreenBlocks() {
+  if (!isMobileDevice()) return;
+  
+  const viewport = {
+    left: window.scrollX,
+    top: window.scrollY,
+    right: window.scrollX + window.innerWidth,
+    bottom: window.scrollY + window.innerHeight
+  };
+  
+  const margin = 200; // Extra margin around viewport to prevent too aggressive cleanup
+  const extendedViewport = {
+    left: viewport.left - margin,
+    top: viewport.top - margin, 
+    right: viewport.right + margin,
+    bottom: viewport.bottom + margin
+  };
+  
+  // Get all blocks and check if they're in the viewport
+  const blocks = document.querySelectorAll('.block');
+  const blocksToRemove = [];
+  
+  blocks.forEach(block => {
+    const rect = block.getBoundingClientRect();
+    const blockCenter = {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+    
+    // If block is completely outside the extended viewport, mark for removal
+    if (blockCenter.x < extendedViewport.left || 
+        blockCenter.x > extendedViewport.right ||
+        blockCenter.y < extendedViewport.top || 
+        blockCenter.y > extendedViewport.bottom) {
+      
+      const blockId = block.dataset.blockId;
+      blocksToRemove.push({ element: block, id: blockId });
+    }
+  });
+  
+  // Limit how many blocks we remove at once to avoid visual issues
+  const maxToRemove = Math.min(blocksToRemove.length, 10);
+  if (maxToRemove > 0) {
+    outputLog(`[Memory Cleanup] Removing ${maxToRemove} offscreen blocks`);
+    
+    for (let i = 0; i < maxToRemove; i++) {
+      const { element, id } = blocksToRemove[i];
+      
+      // Cleanup observers
+      if (element._imageObserver) {
+        element._imageObserver.disconnect();
+      }
+      
+      // Remove element from DOM
+      element.remove();
+      
+      // Update tracking
+      if (id) {
+        STATE.visibleBlockIds.delete(id);
+      }
+    }
+  }
+}
+
+function loadMoreBlocks() {
+  if (STATE.isLoading) return;
+  STATE.isLoading = true;
+  
+  const isMobile = isMobileDevice();
+  
+  // On mobile, check if we've reached the maximum number of blocks to display
+  if (isMobile && document.querySelectorAll('.block').length >= CONFIG.maxBlocks) {
+    outputLog(`[loadMoreBlocks] Mobile block limit reached (${CONFIG.maxBlocks}), stopping auto-load`);
+    clearInterval(STATE.loadIntervalId);
+    STATE.loadIntervalId = null;
+    STATE.isLoading = false;
+    return;
+  }
+  
+  const nextBatch = STATE.allFetchedBlocks.slice(STATE.currentlyDisplayedBlocks, STATE.currentlyDisplayedBlocks + CONFIG.blocksPerLoad);
+  if (nextBatch.length === 0) {
+    outputLog("[loadMoreBlocks] No more blocks to load.");
+    STATE.isLoading = false;
+    clearInterval(STATE.loadIntervalId);
+    STATE.loadIntervalId = null;
+    return;
+  }
+  
+  let blocksToRender = nextBatch;
+  if (STATE.cachedBlockOrder.length > 0) {
+    // Only render blocks that aren't already visible
+    const startIdx = STATE.currentlyDisplayedBlocks;
+    const endIdx = STATE.currentlyDisplayedBlocks + CONFIG.blocksPerLoad;
+    
+    blocksToRender = STATE.cachedBlockOrder.slice(startIdx, endIdx)
+      .filter(blockId => !STATE.visibleBlockIds.has(blockId))
+      .map(blockId => STATE.allFetchedBlocks.find(block => block.id === blockId))
+      .filter(block => block);
+  }
+  
+  // Render blocks
+  blocksToRender.forEach(block => {
+    const blockElement = renderBlock(block);
+    if (STATE.cachedBlockPositions[block.id]) {
+      const pos = STATE.cachedBlockPositions[block.id];
+      blockElement.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotation}deg)`;
+    }
+    STATE.visibleBlockIds.add(block.id);
+  });
+  
+  STATE.currentlyDisplayedBlocks += blocksToRender.length;
+  
+  // On mobile, do memory cleanup after adding new blocks
+  if (isMobile && STATE.currentlyDisplayedBlocks > CONFIG.maxBlocks / 2) {
+    cleanupOffscreenBlocks();
+  }
+  
+  if (STATE.currentlyDisplayedBlocks >= STATE.allFetchedBlocks.length) {
+    outputLog(`[loadMoreBlocks] All blocks loaded: ${STATE.currentlyDisplayedBlocks}`);
+    clearInterval(STATE.loadIntervalId);
+    STATE.loadIntervalId = null;
+  }
+  
+  STATE.isLoading = false;
 }
 
 async function showDetailView(event) {
@@ -342,12 +543,18 @@ async function showDetailView(event) {
         cover.src = channelData.image.display.url;
         cover.alt = `${channelData.title} channel cover`;
         
-        if (channelData.image.original) {
+        // Only load high-res cover on desktop
+        if (!isMobileDevice() && channelData.image.original) {
           const originalImg = new Image();
-          originalImg.src = channelData.image.original.url;
           originalImg.onload = () => {
-            cover.src = originalImg.src;
+            if (cover.isConnected) {
+              cover.src = originalImg.src;
+            }
           };
+          originalImg.onerror = () => {
+            console.warn('Failed to load original channel cover image');
+          };
+          originalImg.src = channelData.image.original.url;
         }
         
         coverWrapper.appendChild(cover);
@@ -379,21 +586,44 @@ async function showDetailView(event) {
   } else {
     arenaLinkElement.href = `https://www.are.na/block/${block.id}`;
     if (block.image) {
+      const isMobile = isMobileDevice();
       const img = document.createElement('img');
+      
+      // Start with display version for faster initial load
       img.src = block.image.display.url;
-      const originalWidth = block.image.original.width || block.image.display.width * 5;
-      const originalHeight = block.image.original.height || block.image.display.height * 5;
-      img.style.width = `${originalWidth}px`;
-      img.style.height = `${originalHeight}px`;
+      
+      // Set reasonable size constraints for mobile
+      if (isMobile) {
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+      } else {
+        const originalWidth = block.image.original.width || block.image.display.width * 5;
+        const originalHeight = block.image.original.height || block.image.display.height * 5;
+        img.style.width = `${originalWidth}px`;
+        img.style.height = `${originalHeight}px`;
+      }
+      
       img.alt = block.title || 'Image';
       detailContent.appendChild(img);
-      const originalImg = new Image();
-      originalImg.src = block.image.original.url;
-      originalImg.onload = () => {
-        img.src = originalImg.src;
-        img.style.width = '';
-        img.style.height = '';
-      };
+      
+      // For mobile, we may want to stick with the display version to save memory
+      // For desktop, load the original high-quality version
+      if (!isMobile && block.image.original && block.image.original.url) {
+        const originalImg = new Image();
+        originalImg.onload = () => {
+          if (img.isConnected) { // Check if the image is still in the DOM
+            img.src = originalImg.src;
+            if (!isMobile) {
+              img.style.width = '';
+              img.style.height = '';
+            }
+          }
+        };
+        originalImg.onerror = () => {
+          console.warn('Failed to load original image, keeping display version');
+        };
+        originalImg.src = block.image.original.url;
+      }
     }
     if (block.class && block.class.toLowerCase() === 'text') {
       if (block.content_html) {
@@ -432,6 +662,23 @@ async function main() {
   } catch (error) {
     console.error('Error clearing old cache:', error);
   }
+  
+  // Add unload event handler to clean up resources
+  window.addEventListener('beforeunload', () => {
+    if (STATE.memoryMonitorId) {
+      clearInterval(STATE.memoryMonitorId);
+    }
+    if (STATE.loadIntervalId) {
+      clearInterval(STATE.loadIntervalId);
+    }
+    
+    // Clean up any active observers
+    document.querySelectorAll('.block').forEach(block => {
+      if (block._imageObserver) {
+        block._imageObserver.disconnect();
+      }
+    });
+  });
 }
 
-main(); 
+main();

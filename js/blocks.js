@@ -231,6 +231,7 @@ function renderChannelBlock(element, block) {
 // 渲染图片块
 function renderImageBlock(element, block) {
   const img = document.createElement('img');
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   
   // 设置初始尺寸和缩略图
   if (block.image.thumb) {
@@ -242,15 +243,60 @@ function renderImageBlock(element, block) {
   img.draggable = false;
   element.appendChild(img);
   
-  // 加载更高质量的图片
-  if (block.image.display && block.image.display.url) {
-    const displayImg = new Image();
-    displayImg.src = block.image.display.url;
-    displayImg.onload = () => {
-      img.src = displayImg.src;
-      img.style.width = '';
-      img.style.height = '';
-    };
+  // 使用 IntersectionObserver 进行懒加载
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries, observer) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          // 只有当块可见时才加载高分辨率图片
+          loadHigherQualityImage();
+          observer.disconnect();
+        }
+      });
+    }, {
+      rootMargin: '100px', // 提前100px开始加载
+      threshold: 0.1 // 当10%的元素可见时
+    });
+    
+    observer.observe(element);
+    element._imageObserver = observer; // 保存引用以便稍后清理
+  } else {
+    // 回退到直接加载（旧浏览器）
+    loadHigherQualityImage();
+  }
+  
+  function loadHigherQualityImage() {
+    if (block.image.display && block.image.display.url) {
+      // 针对移动设备选择合适的图像
+      let targetSrc = block.image.display.url;
+      
+      // 如果是移动设备且存在缩略图，考虑使用中等大小的图像而非原图
+      if (isMobile && block.image.large && block.image.large.url) {
+        targetSrc = block.image.large.url;
+      } else if (isMobile && !block.image.large && block.image.display) {
+        // 如果没有large但有display，使用display
+        targetSrc = block.image.display.url;
+      }
+      
+      const displayImg = new Image();
+      
+      // 设置错误处理，确保加载失败时不会导致应用崩溃
+      displayImg.onerror = () => {
+        console.warn(`Failed to load image: ${targetSrc}, keeping thumbnail`);
+        // 保持缩略图，确保不会尝试加载失败的图像
+      };
+      
+      displayImg.onload = () => {
+        // 检查元素是否仍在DOM中（可能已被删除）
+        if (element.isConnected && img.isConnected) {
+          img.src = displayImg.src;
+          img.style.width = '';
+          img.style.height = '';
+        }
+      };
+      
+      displayImg.src = targetSrc;
+    }
   }
 }
 
@@ -400,4 +446,4 @@ const handleResize = throttle(() => {
   }, 1000);
 }, 100);
 
-window.addEventListener('resize', handleResize); 
+window.addEventListener('resize', handleResize);

@@ -509,9 +509,9 @@ function updatePWAThemeColors(theme) {
   if (theme === 'system') {
     // Check if system is in dark mode
     const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    themeColorValue = isDarkMode ? '#111111' : '#f0f0f0'; 
+    themeColorValue = isDarkMode ? '#1A1A1A' : '#f0f0f0'; 
   } else if (theme === 'dark') {
-    themeColorValue = '#111111'; // Dark theme header color
+    themeColorValue = '#1A1A1A'; // Dark theme header color
   } else {
     themeColorValue = '#f0f0f0'; // Light theme header color
   }
