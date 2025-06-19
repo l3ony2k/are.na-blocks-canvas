@@ -3,7 +3,7 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: 30px;
+  height: 35px;
   background-color: var(--header-bg);
   border-bottom: 1px solid var(--header-border);
   display: flex;
@@ -22,6 +22,7 @@
 
 #header-bar-logo a {
   display: block;
+  height: 20px; 
 }
 
 #header-bar-logo svg {
