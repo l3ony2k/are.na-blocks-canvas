@@ -2,6 +2,35 @@
   box-sizing: border-box;
 }
 
+/* Custom thin scrollbars matching current theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--block-border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--block-border);
+  border-radius: 3px;
+  border: none;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-color);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 body {
   font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   background-color: var(--bg-color);
@@ -38,7 +67,7 @@ blockquote {
   padding: 5px;
   background-color: var(--block-bg);
   color: var(--text-color);
-  box-shadow: 3px 3px 5px rgba(0,0,0,0.3);
+  box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.3);
   cursor: move;
   max-width: 200px;
   word-wrap: break-word;
@@ -51,16 +80,19 @@ blockquote {
   overflow: hidden;
   text-overflow: ellipsis;
   z-index: 1;
-  top: 30px; /* this need to be 30px, this one is necessary */
+  top: 30px;
+  /* this need to be 30px, this one is necessary */
 }
 
 /* Remove margin from the first paragraph in a block to maintain consistent padding */
 .block p:first-child {
   margin-top: 0;
 }
+
 .block p:last-child {
   margin-bottom: 0;
 }
+
 .block p {
   margin: 0.5rem 0;
 }
@@ -236,7 +268,7 @@ blockquote {
   #channel-basic-info {
     flex-direction: column-reverse;
   }
-  
+
   #channel-cover-wrapper {
     max-width: 100%;
     margin-bottom: 20px;
