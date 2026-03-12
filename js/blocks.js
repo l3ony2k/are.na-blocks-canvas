@@ -1,7 +1,6 @@
-// Block Manipulation Functions
 function temporaryRaiseBlock(element) {
   if (!element._tempRaised) {
-    element.style.zIndex = "2";
+    element.style.zIndex = '2';
     element._tempRaised = true;
     element._raiseTimer = setTimeout(() => {
       commitRaiseBlock(element);
@@ -14,14 +13,15 @@ function commitRaiseBlock(element) {
     clearTimeout(element._raiseTimer);
     element._raiseTimer = null;
   }
+
   element.parentElement.appendChild(element);
-  element.style.zIndex = "";
+  element.style.zIndex = '';
   element._tempRaised = false;
 
   const slug = STATE.channelSlugs[0];
   const newOrder = Array.from(document.querySelectorAll('.block')).map(el => el.dataset.blockId);
   STATE.cachedBlockOrder = newOrder;
-  
+
   arenaDB.getChannel(slug).then(cachedData => {
     if (cachedData) {
       cachedData.order = newOrder;
@@ -48,25 +48,32 @@ function handleWheelRotation(event) {
   let currentRotation = 0;
   const transform = block.style.transform;
   const match = transform.match(/rotate\(([^)]+)\)/);
-  if (match) currentRotation = parseFloat(match[1]);
+
+  if (match) {
+    currentRotation = parseFloat(match[1]);
+  }
+
   const delta = Math.sign(event.deltaY);
   const rotationStep = 5;
   const newRotation = currentRotation + delta * rotationStep;
   const x = getTranslateXValue(block);
   const y = getTranslateYValue(block);
+
   block.style.transform = `translate(${x}px, ${y}px) rotate(${newRotation}deg)`;
-  
   updateBlockPosition(block, x, y, newRotation);
-  
   event.preventDefault();
 }
 
 function makeDraggable(element) {
-  let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
-  let isDragging = false, lastMoveTime = 0;
-  const throttleInterval = 25, dragThreshold = 5;
+  let offsetX = 0;
+  let offsetY = 0;
+  let startX = 0;
+  let startY = 0;
+  let isDragging = false;
+  let lastMoveTime = 0;
+  const throttleInterval = 25;
+  const dragThreshold = 5;
 
-  // 共用的保存位置更新函数
   function saveBlockPosition() {
     if (isDragging) {
       const x = getTranslateXValue(element);
@@ -75,15 +82,14 @@ function makeDraggable(element) {
       const rotation = rotationMatch ? parseFloat(rotationMatch[1]) : 0;
 
       STATE.cachedBlockPositions[element.dataset.blockId] = { x, y, rotation };
-      
+
       const blockIdToMove = element.dataset.blockId;
       const index = STATE.cachedBlockOrder.indexOf(blockIdToMove);
       if (index > -1) {
         STATE.cachedBlockOrder.splice(index, 1);
         STATE.cachedBlockOrder.push(blockIdToMove);
       }
-      
-      // 批量存储以减少本地存储写入
+
       requestAnimationFrame(() => {
         arenaDB.getChannel(STATE.channelSlugs[0]).then(cachedData => {
           if (cachedData) {
@@ -96,122 +102,142 @@ function makeDraggable(element) {
         });
       });
     }
+
     isDragging = false;
-    startX = 0; startY = 0;
+    startX = 0;
+    startY = 0;
     element.classList.remove('dragging');
   }
 
-  // 共用的处理移动函数
   function handleMove(pageX, pageY) {
-    if (startX === 0 && startY === 0) return;
-    const dx = pageX - startX, dy = pageY - startY;
-    if (!isDragging && Math.sqrt(dx*dx + dy*dy) > dragThreshold) {
+    if (startX === 0 && startY === 0) {
+      return;
+    }
+
+    const dx = pageX - startX;
+    const dy = pageY - startY;
+
+    if (!isDragging && Math.sqrt(dx * dx + dy * dy) > dragThreshold) {
       isDragging = true;
       element.classList.add('dragging');
       commitRaiseBlock(element);
     }
-    if (!isDragging) return;
+
+    if (!isDragging) {
+      return;
+    }
+
     const now = Date.now();
-    if (now - lastMoveTime < throttleInterval) return;
+    if (now - lastMoveTime < throttleInterval) {
+      return;
+    }
     lastMoveTime = now;
-    let x = pageX - offsetX, y = pageY - offsetY;
-    const blockWidth = element.offsetWidth, blockHeight = element.offsetHeight;
-    const minX = -blockWidth/2, minY = -blockHeight/2;
-    const maxX = window.innerWidth - blockWidth/2, maxY = window.innerHeight - blockHeight/2 - 30;
+
+    let x = pageX - offsetX;
+    let y = pageY - offsetY;
+    const blockWidth = element.offsetWidth;
+    const blockHeight = element.offsetHeight;
+    const minX = -blockWidth / 2;
+    const minY = -blockHeight / 2;
+    const maxX = window.innerWidth - blockWidth / 2;
+    const maxY = window.innerHeight - blockHeight / 2 - 30;
+
     x = Math.min(Math.max(x, minX), maxX);
     y = Math.min(Math.max(y, minY), maxY);
+
     const rotationMatch = element.style.transform.match(/rotate\(([^)]+)\)/);
     const currentRotation = rotationMatch ? `rotate(${rotationMatch[1]})` : '';
     element.style.transform = `translate(${x}px, ${y}px) ${currentRotation}`;
   }
 
-  // 鼠标事件处理
-  element.addEventListener('mousedown', (e) => {
-    startX = e.pageX; startY = e.pageY;
-    offsetX = e.pageX - getTranslateXValue(element);
-    offsetY = e.pageY - getTranslateYValue(element);
+  element.addEventListener('mousedown', event => {
+    startX = event.pageX;
+    startY = event.pageY;
+    offsetX = event.pageX - getTranslateXValue(element);
+    offsetY = event.pageY - getTranslateYValue(element);
     temporaryRaiseBlock(element);
   });
 
-  document.addEventListener('mousemove', (e) => {
-    handleMove(e.pageX, e.pageY);
+  document.addEventListener('mousemove', event => {
+    handleMove(event.pageX, event.pageY);
   });
 
   document.addEventListener('mouseup', saveBlockPosition);
 
-  // 触摸事件处理
-  element.addEventListener('touchstart', (e) => {
-    const touch = e.touches[0];
-    startX = touch.pageX; startY = touch.pageY;
+  element.addEventListener('touchstart', event => {
+    const touch = event.touches[0];
+    startX = touch.pageX;
+    startY = touch.pageY;
     offsetX = touch.pageX - getTranslateXValue(element);
     offsetY = touch.pageY - getTranslateYValue(element);
     temporaryRaiseBlock(element);
   });
 
-  element.addEventListener('touchmove', (e) => {
-    const touch = e.touches[0];
+  element.addEventListener('touchmove', event => {
+    const touch = event.touches[0];
     handleMove(touch.pageX, touch.pageY);
-    e.preventDefault();
+    event.preventDefault();
   });
 
-  element.addEventListener('touchend', (e) => {
+  element.addEventListener('touchend', event => {
     saveBlockPosition();
-    if (e.cancelable) {
-      e.preventDefault();
+    if (event.cancelable) {
+      event.preventDefault();
     }
   });
 }
 
 function renderBlock(block) {
-  // 创建块元素
   const blockElement = document.createElement('div');
   blockElement.classList.add('block');
   blockElement.dataset.blockId = block.id;
+  blockElement.dataset.blockKind = block.kind;
 
-  // 添加事件监听器
   if (!('ontouchstart' in window)) {
-    // 桌面设备事件
-    blockElement.addEventListener('click', (e) => temporaryRaiseBlock(e.currentTarget));
-    blockElement.addEventListener('dblclick', (e) => {
-      commitRaiseBlock(e.currentTarget);
-      showDetailView(e);
+    blockElement.addEventListener('click', event => temporaryRaiseBlock(event.currentTarget));
+    blockElement.addEventListener('dblclick', event => {
+      commitRaiseBlock(event.currentTarget);
+      showDetailView(event);
     });
   } else {
-    // 触摸设备事件
     blockElement.addEventListener('touchend', handleTouchEnd);
   }
-  
-  // 添加滚轮旋转事件
+
   blockElement.addEventListener('wheel', handleWheelRotation);
-  
-  // 根据块类型渲染不同内容
-  if (block.class === 'Channel') {
-    renderChannelBlock(blockElement, block);
-  } else if (block.image) {
-    renderImageBlock(blockElement, block);
-  } else if (block.class === 'Link') {
-    renderLinkBlock(blockElement, block);
+
+  switch (block.kind) {
+    case 'channel':
+      renderChannelBlock(blockElement, block);
+      break;
+    case 'image':
+      renderImageBlock(blockElement, block);
+      break;
+    case 'text':
+      renderTextBlock(blockElement, block);
+      break;
+    case 'link':
+      renderLinkBlock(blockElement, block);
+      break;
+    case 'attachment':
+      renderAttachmentBlock(blockElement, block);
+      break;
+    case 'embed':
+      renderEmbedBlock(blockElement, block);
+      break;
+    default:
+      renderFallbackBlock(blockElement, block);
+      break;
   }
-  
-  // 处理文本内容
-  if (block.class && block.class.toLowerCase() === 'text') {
-    renderTextBlock(blockElement, block);
-  }
-  
-  // 添加到DOM
+
   document.body.appendChild(blockElement);
-  
-  // 使块可拖动
   makeDraggable(blockElement);
-  
+
   return blockElement;
 }
 
-// 渲染频道块
 function renderChannelBlock(element, block) {
   element.classList.add('channel-block');
-  
-  // 创建头部
+
   const header = document.createElement('div');
   header.className = 'channel-header';
   header.innerHTML = `
@@ -222,114 +248,129 @@ function renderChannelBlock(element, block) {
   `;
   element.appendChild(header);
 
-  // 创建标题
   const titleElement = document.createElement('h2');
-  titleElement.textContent = block.title;
+  titleElement.textContent = block.title || 'Untitled Channel';
   element.appendChild(titleElement);
 }
 
-// 渲染图片块
-function renderImageBlock(element, block) {
-  // Add image-block class to help with styling
-  element.classList.add('image-block');
-  
-  // Create placeholder that will be shown until image loads
+function appendPreviewImage(element, block, options = {}) {
+  const versions = block.imageVersions;
+  if (!versions) {
+    return null;
+  }
+
   const placeholder = document.createElement('div');
   placeholder.className = 'image-placeholder';
   element.appendChild(placeholder);
-  
+
   const img = document.createElement('img');
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  
-  // Hide image initially until it loads
   img.style.display = 'none';
-  
-  // 设置初始尺寸和缩略图
-  if (block.image.thumb) {
-    img.style.width = block.image.thumb.width + 'px';
-    img.style.height = block.image.thumb.height + 'px';
-    img.src = block.image.thumb.url;
-  }
-  
   img.draggable = false;
-  element.appendChild(img);
-  
-  // When any version of the image loads, show it and hide placeholder
-  img.onload = function() {
+
+  const initialVersion = versions.thumb || versions.preview || versions.display || versions.large || versions.original;
+  if (initialVersion?.url) {
+    if (initialVersion.width) {
+      img.style.width = `${initialVersion.width}px`;
+    }
+    if (initialVersion.height) {
+      img.style.height = `${initialVersion.height}px`;
+    }
+    img.src = initialVersion.url;
+  }
+
+  img.onload = () => {
     img.style.display = 'block';
     placeholder.style.display = 'none';
   };
-  
-  // 使用 IntersectionObserver 进行懒加载
+
+  element.appendChild(img);
+
+  function loadHigherQualityImage() {
+    const isMobile = isMobileDevice();
+    const targetVersion = options.fullResolution
+      ? versions.original || versions.large || versions.display
+      : (isMobile ? versions.display || versions.large : versions.large || versions.original || versions.display);
+
+    if (!targetVersion?.url || targetVersion.url === img.src) {
+      return;
+    }
+
+    const highResImage = new Image();
+    highResImage.onerror = () => {
+      console.warn(`Failed to load image: ${targetVersion.url}`);
+    };
+    highResImage.onload = () => {
+      if (element.isConnected && img.isConnected) {
+        img.src = highResImage.src;
+        img.style.width = '';
+        img.style.height = '';
+      }
+    };
+    highResImage.src = targetVersion.url;
+  }
+
   if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver((entries, observer) => {
+    const observer = new IntersectionObserver((entries, currentObserver) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          // 只有当块可见时才加载高分辨率图片
           loadHigherQualityImage();
-          observer.disconnect();
+          currentObserver.disconnect();
         }
       });
     }, {
-      rootMargin: '100px', // 提前100px开始加载
-      threshold: 0.1 // 当10%的元素可见时
+      rootMargin: '100px',
+      threshold: 0.1
     });
-    
+
     observer.observe(element);
-    element._imageObserver = observer; // 保存引用以便稍后清理
+    element._imageObserver = observer;
   } else {
-    // 回退到直接加载（旧浏览器）
     loadHigherQualityImage();
   }
-  
-  function loadHigherQualityImage() {
-    if (block.image.display && block.image.display.url) {
-      // 针对移动设备选择合适的图像
-      let targetSrc = block.image.display.url;
-      
-      // 如果是移动设备且存在缩略图，考虑使用中等大小的图像而非原图
-      if (isMobile && block.image.large && block.image.large.url) {
-        targetSrc = block.image.large.url;
-      } else if (isMobile && !block.image.large && block.image.display) {
-        // 如果没有large但有display，使用display
-        targetSrc = block.image.display.url;
-      }
-      
-      const displayImg = new Image();
-      
-      // 设置错误处理，确保加载失败时不会导致应用崩溃
-      displayImg.onerror = () => {
-        console.warn(`Failed to load image: ${targetSrc}, keeping thumbnail`);
-        // 保持缩略图，确保不会尝试加载失败的图像
-      };
-      
-      displayImg.onload = () => {
-        // 检查元素是否仍在DOM中（可能已被删除）
-        if (element.isConnected && img.isConnected) {
-          img.src = displayImg.src;
-          img.style.width = '';
-          img.style.height = '';
-        }
-      };
-      
-      displayImg.src = targetSrc;
-    }
-  }
+
+  return img;
 }
 
-// 渲染链接块
+function renderImageBlock(element, block) {
+  element.classList.add('image-block');
+  appendPreviewImage(element, block, { fullResolution: false });
+}
+
 function renderLinkBlock(element, block) {
+  appendPreviewImage(element, block, { fullResolution: false });
+
   const link = document.createElement('div');
-  link.textContent = block.title || 'Link';
+  link.textContent = block.title || block.source?.title || 'Link';
   link.style.color = 'var(--link-color)';
   element.appendChild(link);
 }
 
-// 渲染文本块
+function renderAttachmentBlock(element, block) {
+  appendPreviewImage(element, block, { fullResolution: false });
+
+  const title = document.createElement('div');
+  title.textContent = block.title || block.attachment?.filename || 'Attachment';
+  element.appendChild(title);
+}
+
+function renderEmbedBlock(element, block) {
+  appendPreviewImage(element, block, { fullResolution: false });
+
+  const title = document.createElement('div');
+  title.textContent = block.title || block.embed?.title || 'Embed';
+  element.appendChild(title);
+}
+
+function renderFallbackBlock(element, block) {
+  const title = document.createElement('div');
+  title.textContent = block.title || block.rawType || 'Block';
+  element.appendChild(title);
+}
+
 function renderTextBlock(element, block) {
-  if (block.content_html) {
+  if (block.textHtml) {
     const text = document.createElement('div');
-    text.innerHTML = block.content_html;
+    text.innerHTML = block.textHtml;
     element.appendChild(text);
   } else if (block.title) {
     const title = document.createElement('div');
@@ -338,16 +379,14 @@ function renderTextBlock(element, block) {
   }
 }
 
-// 添加更新块位置的共用函数
 function updateBlockPosition(block, x, y, rotation) {
   const blockId = block.dataset.blockId;
   STATE.cachedBlockPositions[blockId] = { x, y, rotation };
-  
-  // 使用防抖或节流来减少存储操作
+
   if (STATE._savePositionTimeout) {
     clearTimeout(STATE._savePositionTimeout);
   }
-  
+
   STATE._savePositionTimeout = setTimeout(() => {
     const slug = STATE.channelSlugs[0];
     arenaDB.getChannel(slug).then(cachedData => {
@@ -358,98 +397,49 @@ function updateBlockPosition(block, x, y, rotation) {
     }).catch(error => {
       console.error('Error updating block positions in cache:', error);
     });
-  }, 1000); // 1秒延迟，避免频繁写入
-}
-
-function loadMoreBlocks() {
-  if (STATE.isLoading) return;
-  STATE.isLoading = true;
-  const nextBatch = STATE.allFetchedBlocks.slice(STATE.currentlyDisplayedBlocks, STATE.currentlyDisplayedBlocks + CONFIG.blocksPerLoad);
-  if (nextBatch.length === 0) {
-    outputLog("[loadMoreBlocks] No more blocks to load.");
-    STATE.isLoading = false;
-    clearInterval(STATE.loadIntervalId);
-    STATE.loadIntervalId = null;
-    return;
-  }
-  
-  let blocksToRender = nextBatch;
-  if (STATE.cachedBlockOrder.length > 0) {
-    blocksToRender = STATE.cachedBlockOrder.slice(STATE.currentlyDisplayedBlocks, STATE.currentlyDisplayedBlocks + CONFIG.blocksPerLoad)
-      .map(blockId => STATE.allFetchedBlocks.find(block => block.id === blockId))
-      .filter(block => block);
-  }
-  blocksToRender.forEach(block => {
-    const blockElement = renderBlock(block);
-    if (STATE.cachedBlockPositions[block.id]) {
-      const pos = STATE.cachedBlockPositions[block.id];
-      blockElement.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotation}deg)`;
-    }
-  });
-  
-  STATE.currentlyDisplayedBlocks += blocksToRender.length;
-  
-  if (STATE.currentlyDisplayedBlocks >= STATE.allFetchedBlocks.length) {
-    outputLog(`[loadMoreBlocks] All blocks loaded: ${STATE.currentlyDisplayedBlocks}`);
-    clearInterval(STATE.loadIntervalId);
-    STATE.loadIntervalId = null;
-  }
-  
-  STATE.isLoading = false;
+  }, 1000);
 }
 
 const handleResize = throttle(() => {
-  // 获取视口边界
   const viewport = {
     minX: 0,
     minY: 0,
     maxX: window.innerWidth,
     maxY: window.innerHeight - 30
   };
-  
-  // 使用DocumentFragment减少DOM重绘
+
   const blocks = document.querySelectorAll('.block');
-  
-  // 批量处理所有块的位置调整
+
   blocks.forEach(block => {
     const blockWidth = block.offsetWidth;
     const blockHeight = block.offsetHeight;
-    
-    // 计算边界
     const bounds = {
-      minX: -blockWidth/2,
-      minY: -blockHeight/2,
-      maxX: viewport.maxX - blockWidth/2,
-      maxY: viewport.maxY - blockHeight/2
+      minX: -blockWidth / 2,
+      minY: -blockHeight / 2,
+      maxX: viewport.maxX - blockWidth / 2,
+      maxY: viewport.maxY - blockHeight / 2
     };
-    
-    // 获取当前位置
+
     let x = getTranslateXValue(block);
     let y = getTranslateYValue(block);
-    
-    // 确保在边界内
+
     x = Math.min(Math.max(x, bounds.minX), bounds.maxX);
     y = Math.min(Math.max(y, bounds.minY), bounds.maxY);
-    
-    // 保持旋转角度不变
-    const currentRotation = (block.style.transform.match(/rotate\(([^)]+)\)/) || ['','0deg'])[1];
-    
-    // 更新变换
+
+    const currentRotation = (block.style.transform.match(/rotate\(([^)]+)\)/) || ['', '0deg'])[1];
     block.style.transform = `translate(${x}px, ${y}px) rotate(${currentRotation})`;
-    
-    // 更新缓存的位置
+
     const blockId = block.dataset.blockId;
     if (blockId && STATE.cachedBlockPositions[blockId]) {
       STATE.cachedBlockPositions[blockId].x = x;
       STATE.cachedBlockPositions[blockId].y = y;
     }
   });
-  
-  // 延迟保存位置到数据库
+
   if (STATE._resizePositionTimeout) {
     clearTimeout(STATE._resizePositionTimeout);
   }
-  
+
   STATE._resizePositionTimeout = setTimeout(() => {
     const slug = STATE.channelSlugs[0];
     arenaDB.getChannel(slug).then(cachedData => {

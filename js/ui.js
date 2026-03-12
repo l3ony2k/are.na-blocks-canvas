@@ -79,6 +79,156 @@ function addMetaItem(label, value, linkHref, isHTML=false) {
   metaContainer.appendChild(item);
 }
 
+function resetDetailPanels() {
+  document.getElementById('detail-view-content').innerHTML = '';
+  document.getElementById('detail-view-link').innerHTML = '';
+  document.getElementById('detail-view-info').innerHTML = '';
+  document.getElementById('detail-view-meta').innerHTML = '';
+}
+
+function getChannelVisibilityLabel(visibility) {
+  return {
+    public: 'Public',
+    closed: 'Closed',
+    private: 'Private'
+  }[visibility] || 'Unknown';
+}
+
+function renderChannelDetailContent(channelData, followerCount, options = {}) {
+  const detailContent = document.getElementById('detail-view-content');
+  const detailTitle = document.getElementById('detail-view-title');
+  const arenaLink = document.getElementById('detail-view-arena-link');
+
+  resetDetailPanels();
+  detailContent.innerHTML = '';
+  detailTitle.textContent = options.title || channelData.title || 'Channel';
+  arenaLink.href = options.arenaUrl || channelData.arenaUrl || `https://www.are.na/channel/${channelData.slug}`;
+
+  const contentWrapper = document.createElement('div');
+  contentWrapper.id = 'channel-detail-container';
+
+  const basicInfo = document.createElement('div');
+  basicInfo.id = 'channel-basic-info';
+
+  const textInfo = document.createElement('div');
+  textInfo.id = 'channel-text-info';
+
+  if (channelData.descriptionHtml) {
+    const description = document.createElement('div');
+    description.id = 'channel-description';
+    description.innerHTML = channelData.descriptionHtml;
+    textInfo.appendChild(description);
+  }
+
+  if (channelData.owner) {
+    const authorInfo = document.createElement('div');
+    authorInfo.textContent = 'Channel Author: ';
+    const authorName = document.createElement('a');
+    authorName.href = channelData.owner.slug ? `https://are.na/${channelData.owner.slug}` : '#';
+    authorName.target = '_blank';
+    authorName.textContent = channelData.owner.name || 'Unknown';
+    authorInfo.appendChild(authorName);
+    textInfo.appendChild(authorInfo);
+  }
+
+  const stats = document.createElement('div');
+  stats.id = 'channel-stats';
+  stats.innerHTML = `
+    <div>Blocks: ${channelData.counts?.contents || 0}</div>
+    <div>Followers: ${followerCount || 0}</div>
+  `;
+  textInfo.appendChild(stats);
+
+  if (channelData.createdAt) {
+    const dates = document.createElement('div');
+    dates.id = 'channel-dates';
+    const created = new Date(channelData.createdAt).toLocaleDateString();
+    const updated = channelData.updatedAt ? new Date(channelData.updatedAt).toLocaleDateString() : created;
+    dates.innerHTML = `
+      <div>Created: ${created}</div>
+      <div>Updated: ${updated}</div>
+    `;
+    textInfo.appendChild(dates);
+  }
+
+  const status = document.createElement('div');
+  status.id = 'channel-status';
+  status.innerHTML = `
+    <div>Visibility: ${getChannelVisibilityLabel(channelData.visibility)}</div>
+    <div>State: ${channelData.state || 'unknown'}</div>
+  `;
+  textInfo.appendChild(status);
+
+  if (options.primaryActionLabel && typeof options.primaryAction === 'function') {
+    const actionButton = document.createElement('button');
+    actionButton.id = 'channel-goto-button';
+    actionButton.textContent = options.primaryActionLabel;
+    actionButton.addEventListener('click', options.primaryAction);
+    textInfo.appendChild(actionButton);
+  }
+
+  const coverVersion = channelData.coverImageVersions?.display || channelData.coverImageVersions?.large;
+  if (coverVersion?.url) {
+    const coverWrapper = document.createElement('div');
+    coverWrapper.id = 'channel-cover-wrapper';
+
+    const cover = document.createElement('img');
+    cover.id = 'channel-cover-image';
+    cover.src = coverVersion.url;
+    cover.alt = `${channelData.title} channel cover`;
+
+    coverWrapper.appendChild(cover);
+    basicInfo.appendChild(coverWrapper);
+  }
+
+  basicInfo.insertBefore(textInfo, basicInfo.firstChild);
+  contentWrapper.appendChild(basicInfo);
+  detailContent.appendChild(contentWrapper);
+
+  if (options.contextItem?.descriptionHtml) {
+    addMetaItem('Description', options.contextItem.descriptionHtml, null, true);
+  }
+
+  if (options.contextItem?.connection?.connectedAt) {
+    addMetaItem('Connected At', new Date(options.contextItem.connection.connectedAt).toLocaleString(), null);
+  }
+
+  if (options.contextItem?.connection?.connectedBy?.name) {
+    const connectedByUrl = options.contextItem.connection.connectedBy.slug
+      ? `https://www.are.na/${options.contextItem.connection.connectedBy.slug}`
+      : null;
+    addMetaItem('Connected By', options.contextItem.connection.connectedBy.name, connectedByUrl, false);
+  }
+}
+
+async function showChannelDetailBySlug(slug, options = {}) {
+  if (!slug) {
+    return;
+  }
+
+  const detailContent = document.getElementById('detail-view-content');
+  resetDetailPanels();
+  detailContent.innerHTML = '<div style="padding: 20px;">Loading channel details...</div>';
+  document.getElementById('detail-view').style.display = 'flex';
+
+  try {
+    const [channelResult, followerResult] = await Promise.allSettled([
+      arenaAPI.getChannel(slug),
+      arenaAPI.getChannelFollowerCount(slug)
+    ]);
+
+    if (channelResult.status !== 'fulfilled') {
+      throw channelResult.reason;
+    }
+
+    const followerCount = followerResult.status === 'fulfilled' ? followerResult.value : 0;
+    renderChannelDetailContent(channelResult.value, followerCount, options);
+  } catch (error) {
+    console.error('Error fetching channel details:', error);
+    detailContent.innerHTML = '<div style="padding: 20px;">Failed to load channel details</div>';
+  }
+}
+
 function showAboutView() {
   // 先关闭当前的 detailview
   if (document.getElementById('detail-view').style.display === 'flex') {
@@ -344,7 +494,6 @@ function resetTileButton() {
 
 // Add new function to show current channel detail
 async function showCurrentChannelDetail() {
-  // 先关闭当前的 detailview
   if (document.getElementById('detail-view').style.display === 'flex') {
     closeDetailView();
   }
@@ -352,121 +501,13 @@ async function showCurrentChannelDetail() {
   const slug = STATE.channelSlugs[0];
   if (!slug) return;
 
-  const detailContent = document.getElementById('detail-view-content');
-  const detailTitle = document.getElementById('detail-view-title');
-  const detailMeta = document.getElementById('detail-view-meta');
-  const arenaLink = document.getElementById('detail-view-arena-link');
-
-  detailContent.innerHTML = '<div style="padding: 20px;">Loading channel details...</div>';
-  document.getElementById('detail-view').style.display = 'flex';
-
-  try {
-    const response = await fetch(`https://api.are.na/v2/channels/${slug}`);
-    if (!response.ok) throw new Error('Failed to fetch channel details');
-    const channelData = await response.json();
-    
-    detailContent.innerHTML = '';
-    detailTitle.textContent = channelData.title;
-
-    const contentWrapper = document.createElement('div');
-    contentWrapper.id = 'channel-detail-container';
-
-    const basicInfo = document.createElement('div');
-    basicInfo.id = 'channel-basic-info';
-
-    const textInfo = document.createElement('div');
-    textInfo.id = 'channel-text-info';
-
-    if (channelData.metadata && channelData.metadata.description) {
-      const description = document.createElement('div');
-      description.id = 'channel-description';
-      description.innerHTML = channelData.metadata.description;
-      textInfo.appendChild(description);
-    }
-
-    if (channelData.user) {
-      const authorInfo = document.createElement('div');
-      authorInfo.textContent = 'Channel Author: ';
-      const authorName = document.createElement('a');
-      authorName.href = `https://are.na/${channelData.user.slug}`;
-      authorName.target = '_blank';
-      authorName.textContent = channelData.user.full_name;
-      authorInfo.appendChild(authorName);
-      textInfo.appendChild(authorInfo);
-    }
-
-    const stats = document.createElement('div');
-    stats.id = 'channel-stats';
-    stats.innerHTML = `
-      <div>Blocks: ${channelData.length || 0}</div>
-      <div>Followers: ${channelData.follower_count || 0}</div>
-    `;
-    textInfo.appendChild(stats);
-
-    if (channelData.created_at) {
-      const dates = document.createElement('div');
-      dates.id = 'channel-dates';
-      const created = new Date(channelData.created_at).toLocaleDateString();
-      const updated = channelData.updated_at ? new Date(channelData.updated_at).toLocaleDateString() : created;
-      dates.innerHTML = `
-        <div>Created: ${created}</div>
-        <div>Updated: ${updated}</div>
-      `;
-      textInfo.appendChild(dates);
-    }
-
-    const status = document.createElement('div');
-    status.id = 'channel-status';
-    const statusText = {
-      'public': 'Public',
-      'closed': 'Closed',
-      'private': 'Private'
-    }[channelData.status] || 'Public';
-    status.innerHTML = `
-      <div>Status: ${statusText}</div>
-      <div>${channelData.open ? 'Open' : 'Closed'} Collaboration</div>
-    `;
-    textInfo.appendChild(status);
-
-    const viewOnArenaButton = document.createElement('button');
-    viewOnArenaButton.id = 'channel-goto-button';
-    viewOnArenaButton.textContent = 'View Channel on Are.na';
-    viewOnArenaButton.addEventListener('click', function() {
+  await showChannelDetailBySlug(slug, {
+    primaryActionLabel: 'View Channel on Are.na',
+    primaryAction: () => {
       window.open(`https://www.are.na/channel/${slug}`, '_blank');
-    });
-    textInfo.appendChild(viewOnArenaButton);
-
-    if (channelData.image) {
-      const coverWrapper = document.createElement('div');
-      coverWrapper.id = 'channel-cover-wrapper';
-      
-      const cover = document.createElement('img');
-      cover.id = 'channel-cover-image';
-      cover.src = channelData.image.display.url;
-      cover.alt = `${channelData.title} channel cover`;
-      
-      if (channelData.image.original) {
-        const originalImg = new Image();
-        originalImg.src = channelData.image.original.url;
-        originalImg.onload = () => {
-          cover.src = originalImg.src;
-        };
-      }
-      
-      coverWrapper.appendChild(cover);
-      basicInfo.appendChild(coverWrapper);
-    }
-
-    basicInfo.insertBefore(textInfo, basicInfo.firstChild);
-    contentWrapper.appendChild(basicInfo);
-    detailContent.appendChild(contentWrapper);
-
-    arenaLink.href = `https://www.are.na/channel/${slug}`;
-
-  } catch (error) {
-    console.error('Error fetching channel details:', error);
-    detailContent.innerHTML = '<div style="padding: 20px;">Failed to load channel details</div>';
-  }
+    },
+    arenaUrl: `https://www.are.na/channel/${slug}`
+  });
 }
 
 // More button functionality

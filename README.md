@@ -2,20 +2,22 @@
 
 A visual tool for exploring Are.na blocks in a canvas interface. This project allows users to interact with Are.na content in a more spatial and intuitive way.
 
+The app uses public browser-side requests against the Are.na API v3 by default.
+
 ## Features
 
 - Interactive canvas interface for Are.na blocks
 - Drag and drop functionality
 - Visual organization of blocks
-- Real-time updates with Are.na API
+- Real-time updates with Are.na API v3
 - Responsive design for different screen sizes
 
 ## Technology Stack
 
 - **Frontend**: Vanilla JavaScript (ES6+)
 - **Styling**: CSS3 with custom variables for theming
-- **API**: Are.na API integration
-- **Storage**: Browser LocalStorage for persistence
+- **API**: Are.na API v3 integration
+- **Storage**: Browser IndexedDB for persistence
 - **Dependencies**: No external dependencies, built with native web technologies
 
 ## Getting Started

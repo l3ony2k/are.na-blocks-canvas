@@ -6,7 +6,8 @@ const CONFIG = {
   loadInterval: isMobileDevice() ? 300 : 100,    // More time between batches on mobile
   doubleClickDelay: 300,
   dbName: 'ArenaBlocksDB',
-  dbVersion: 2,
+  dbVersion: 3,
+  cacheSchemaVersion: 'arena-v3',
   cacheMaxAge: 24 * 60 * 60 * 1000, // 1 day
   memoryCheckInterval: 5000,         // Check memory usage every 5 seconds on mobile
   maxBlocks: isMobileDevice() ? 150 : 1000, // Maximum blocks to render at once on mobile
@@ -25,10 +26,12 @@ function isMobileDevice() {
 const STATE = {
   channelSlugs: [CONFIG.defaultChannel],
   allFetchedBlocks: [],
+  currentChannelInfo: null,
   currentlyDisplayedBlocks: 0,
   isLoading: false,
   loadIntervalId: null,
   cachedBlockPositions: {},
   cachedBlockOrder: [],
+  visibleBlockIds: new Set(),
   lastTouchEnd: 0
 };

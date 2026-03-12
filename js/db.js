@@ -18,6 +18,7 @@ class ArenaDB {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
+        const tx = event.target.transaction;
         
         if (!db.objectStoreNames.contains('channels')) {
           const channelStore = db.createObjectStore('channels', { keyPath: 'slug' });
@@ -32,6 +33,10 @@ class ArenaDB {
 
         if (event.oldVersion < 2) {
           this.clearOldCache();
+        }
+
+        if (event.oldVersion < 3 && tx && db.objectStoreNames.contains('channels')) {
+          tx.objectStore('channels').clear();
         }
       };
     });
@@ -48,6 +53,7 @@ class ArenaDB {
       const state = {
         slug,
         data,
+        cacheVersion: CONFIG.cacheSchemaVersion,
         positions: STATE.cachedBlockPositions,
         order: order,
         timestamp: Date.now()
@@ -66,7 +72,14 @@ class ArenaDB {
       const store = tx.objectStore('channels');
       const request = store.get(slug);
       
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result && result.cacheVersion !== CONFIG.cacheSchemaVersion) {
+          resolve(null);
+          return;
+        }
+        resolve(result);
+      };
       request.onerror = () => reject(request.error);
     });
   }
