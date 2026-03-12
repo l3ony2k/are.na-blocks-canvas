@@ -270,10 +270,13 @@ function appendPreviewImage(element, block, options = {}) {
   const initialVersion = versions.thumb || versions.preview || versions.display || versions.large || versions.original;
   if (initialVersion?.url) {
     if (initialVersion.width) {
-      img.style.width = `${initialVersion.width}px`;
+      img.width = initialVersion.width;
     }
     if (initialVersion.height) {
-      img.style.height = `${initialVersion.height}px`;
+      img.height = initialVersion.height;
+    }
+    if (initialVersion.width && initialVersion.height) {
+      img.style.aspectRatio = `${initialVersion.width} / ${initialVersion.height}`;
     }
     img.src = initialVersion.url;
   }
@@ -302,8 +305,6 @@ function appendPreviewImage(element, block, options = {}) {
     highResImage.onload = () => {
       if (element.isConnected && img.isConnected) {
         img.src = highResImage.src;
-        img.style.width = '';
-        img.style.height = '';
       }
     };
     highResImage.src = targetVersion.url;
@@ -337,7 +338,11 @@ function renderImageBlock(element, block) {
 }
 
 function renderLinkBlock(element, block) {
-  appendPreviewImage(element, block, { fullResolution: false });
+  const previewImage = appendPreviewImage(element, block, { fullResolution: false });
+
+  if (previewImage) {
+    return;
+  }
 
   const link = document.createElement('div');
   link.textContent = block.title || block.source?.title || 'Link';
@@ -346,7 +351,11 @@ function renderLinkBlock(element, block) {
 }
 
 function renderAttachmentBlock(element, block) {
-  appendPreviewImage(element, block, { fullResolution: false });
+  const previewImage = appendPreviewImage(element, block, { fullResolution: false });
+
+  if (previewImage) {
+    return;
+  }
 
   const title = document.createElement('div');
   title.textContent = block.title || block.attachment?.filename || 'Attachment';
@@ -354,7 +363,11 @@ function renderAttachmentBlock(element, block) {
 }
 
 function renderEmbedBlock(element, block) {
-  appendPreviewImage(element, block, { fullResolution: false });
+  const previewImage = appendPreviewImage(element, block, { fullResolution: false });
+
+  if (previewImage) {
+    return;
+  }
 
   const title = document.createElement('div');
   title.textContent = block.title || block.embed?.title || 'Embed';

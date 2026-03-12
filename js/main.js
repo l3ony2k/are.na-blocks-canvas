@@ -499,19 +499,26 @@ function appendDetailImage(container, block) {
   const isMobile = isMobileDevice();
   const img = document.createElement('img');
   const initialVersion = block.imageVersions.display || block.imageVersions.large || block.imageVersions.original;
+  const intrinsicVersion = block.imageVersions.original || initialVersion;
 
   if (!initialVersion?.url) {
     return;
   }
 
   img.src = initialVersion.url;
+  if (intrinsicVersion?.width) {
+    img.width = intrinsicVersion.width;
+  }
+  if (intrinsicVersion?.height) {
+    img.height = intrinsicVersion.height;
+  }
+  if (intrinsicVersion?.width && intrinsicVersion?.height) {
+    img.style.aspectRatio = `${intrinsicVersion.width} / ${intrinsicVersion.height}`;
+  }
 
   if (isMobile) {
     img.style.maxWidth = '100%';
     img.style.height = 'auto';
-  } else if (block.imageVersions.original?.width && block.imageVersions.original?.height) {
-    img.style.width = `${block.imageVersions.original.width}px`;
-    img.style.height = `${block.imageVersions.original.height}px`;
   }
 
   img.alt = block.title || block.imageVersions.altText || 'Image';
@@ -522,8 +529,6 @@ function appendDetailImage(container, block) {
     originalImg.onload = () => {
       if (img.isConnected) {
         img.src = originalImg.src;
-        img.style.width = '';
-        img.style.height = '';
       }
     };
     originalImg.onerror = () => {
