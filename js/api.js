@@ -213,7 +213,7 @@ const arenaAPI = (() => {
     return normalizeArenaItem(data);
   }
 
-  async function getChannelContentsPage(id, page = 1, per = 100, sort = 'position_desc') {
+  async function getChannelContentsPage(id, page = 1, per = 100, sort = 'position_asc') {
     const params = new URLSearchParams({
       page: String(page),
       per: String(per),
@@ -236,7 +236,7 @@ const arenaAPI = (() => {
 
   async function getAllChannelContents(id, options = {}) {
     const per = options.per || 100;
-    const sort = options.sort || 'position_desc';
+    const sort = options.sort || 'position_asc';
     const onPageLoaded = options.onPageLoaded;
 
     const firstPage = await getChannelContentsPage(id, 1, per, sort);

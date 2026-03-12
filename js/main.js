@@ -93,7 +93,7 @@ async function fetchChannelBlocks(slug) {
 
     const result = await arenaAPI.getAllChannelContents(slug, {
       per: 100,
-      sort: 'position_desc',
+      sort: 'position_asc',
       onPageLoaded: info => {
         outputLog(`[fetchChannelBlocks] Page ${info.page} data received, ${info.pageCount} blocks.`);
         if (info.total > 0) {

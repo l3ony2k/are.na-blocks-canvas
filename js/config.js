@@ -7,7 +7,7 @@ const CONFIG = {
   doubleClickDelay: 300,
   dbName: 'ArenaBlocksDB',
   dbVersion: 3,
-  cacheSchemaVersion: 'arena-v3',
+  cacheSchemaVersion: 'arena-v3-position-asc',
   cacheMaxAge: 24 * 60 * 60 * 1000, // 1 day
   memoryCheckInterval: 5000,         // Check memory usage every 5 seconds on mobile
   maxBlocks: isMobileDevice() ? 150 : 1000, // Maximum blocks to render at once on mobile
