@@ -48,7 +48,7 @@ class ArenaDB {
       const tx = this.db.transaction('channels', 'readwrite');
       const store = tx.objectStore('channels');
       
-      const order = Array.from(document.querySelectorAll('.block')).map(el => el.dataset.blockId);
+      const order = Array.from(document.querySelectorAll('.block:not([data-flow-instance])')).map(el => el.dataset.blockId);
   
       const state = {
         slug,

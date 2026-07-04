@@ -84,6 +84,47 @@ blockquote {
   /* this need to be 30px, this one is necessary */
 }
 
+body.flow-mode {
+  cursor: grab;
+}
+
+body.flow-dragging {
+  cursor: grabbing;
+}
+
+#flow-surface {
+  position: fixed;
+  inset: 35px 0 0 0;
+  overflow: hidden;
+  z-index: 1;
+  touch-action: none;
+}
+
+.flow-mode .block.flow-block {
+  top: 0;
+  cursor: pointer;
+  box-shadow: none;
+  contain: layout paint style;
+}
+
+.flow-mode .block.flow-block.dragging {
+  opacity: 1;
+}
+
+.flow-mode .block.flow-block.preview-image-block {
+  padding: 5px;
+}
+
+.flow-mode .block.flow-block .image-placeholder {
+  width: 100%;
+}
+
+.flow-mode .block.flow-block img {
+  width: 100%;
+  height: auto;
+  background-color: transparent;
+}
+
 /* Remove margin from the first paragraph in a block to maintain consistent padding */
 .block p:first-child {
   margin-top: 0;

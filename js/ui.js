@@ -295,24 +295,10 @@ function initHeaderBar() {
     showCurrentChannelDetail();
   });
 
-  // Initialize tile/shuffle button
+  // Initialize layout mode button
   const tileButton = document.getElementById('tile-button');
-  STATE.isTiled = false;  // 将状态移到全局
   tileButton.addEventListener('click', () => {
-    if (STATE.isTiled) {
-      shuffleBlocks();
-      tileButton.textContent = 'tile';
-      if (document.getElementById('more-tile-button')) {
-        document.getElementById('more-tile-button').textContent = 'tile';
-      }
-    } else {
-      tileBlocks();
-      tileButton.textContent = 'mix';
-      if (document.getElementById('more-tile-button')) {
-        document.getElementById('more-tile-button').textContent = 'mix';
-      }
-    }
-    STATE.isTiled = !STATE.isTiled;
+    cycleLayoutMode();
   });
 
   const themeToggle = document.getElementById('theme-toggle');
@@ -353,6 +339,56 @@ function handleGoButtonClick() {
   }
 }
 
+function setLayoutButtonText(text) {
+  const tileButton = document.getElementById('tile-button');
+  const moreTileButton = document.getElementById('more-tile-button');
+
+  if (tileButton) {
+    tileButton.textContent = text;
+  }
+  if (moreTileButton) {
+    moreTileButton.textContent = text;
+  }
+}
+
+function cycleLayoutMode() {
+  if (STATE.layoutMode === 'mix') {
+    setLayoutMode('tile');
+  } else if (STATE.layoutMode === 'tile') {
+    setLayoutMode('flow');
+  } else {
+    setLayoutMode('mix');
+  }
+}
+
+function setLayoutMode(mode) {
+  if (mode === STATE.layoutMode) {
+    return;
+  }
+
+  if (STATE.layoutMode === 'flow') {
+    exitFlowMode();
+  }
+
+  if (mode === 'tile') {
+    STATE.layoutMode = 'tile';
+    tileBlocks();
+    setLayoutButtonText('flow');
+    return;
+  }
+
+  if (mode === 'flow') {
+    STATE.layoutMode = 'flow';
+    enterFlowMode();
+    setLayoutButtonText('mix');
+    return;
+  }
+
+  STATE.layoutMode = 'mix';
+  shuffleBlocks();
+  setLayoutButtonText('tile');
+}
+
 // Initialize UI event listeners
 document.addEventListener('DOMContentLoaded', () => {
   const headerBar = document.getElementById('header-bar');
@@ -379,6 +415,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Add new functions for tile and shuffle
 function tileBlocks() {
+  if (STATE.layoutMode === 'flow') {
+    return;
+  }
+
   const blocks = Array.from(document.querySelectorAll('.block'));
   const blockWidth = 200;
   const blockHeight = 300;
@@ -442,6 +482,10 @@ function tileBlocks() {
 }
 
 function shuffleBlocks() {
+  if (STATE.layoutMode === 'flow') {
+    return;
+  }
+
   const blocks = Array.from(document.querySelectorAll('.block'));
   const blockWidth = 200;
   const blockHeight = 300;
@@ -481,15 +525,485 @@ function shuffleBlocks() {
   });
 }
 
+function getFlowGapPixels() {
+  const rootFontSize = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+  return CONFIG.flowGapRem * rootFontSize;
+}
+
+function getOrderedFlowBlocks() {
+  const blockMap = new Map(STATE.allFetchedBlocks.map(block => [String(block.id), block]));
+  const orderedBlocks = STATE.cachedBlockOrder
+    .map(id => blockMap.get(String(id)))
+    .filter(Boolean);
+
+  if (orderedBlocks.length > 0) {
+    return orderedBlocks;
+  }
+
+  return STATE.allFetchedBlocks.slice();
+}
+
+function estimateFlowBlockHeight(block) {
+  const maxHeight = CONFIG.flowBlockMaxHeight;
+  const width = CONFIG.flowBlockWidth;
+  const paddingAndBorder = 14;
+
+  const versions = block.imageVersions;
+  const measured = STATE.flowImageMeasurements[String(block.id)];
+  const imageVersion = versions?.original || versions?.large || versions?.display || versions?.preview || versions?.thumb;
+  const sourceWidth = measured?.width || versions?.width || imageVersion?.width;
+  const sourceHeight = measured?.height || versions?.height || imageVersion?.height;
+
+  if (sourceWidth && sourceHeight) {
+    return Math.min(maxHeight, Math.max(80, (sourceHeight / sourceWidth) * width + paddingAndBorder));
+  }
+
+  if (versions) {
+    return Math.min(maxHeight, Math.max(120, width * 0.75 + paddingAndBorder));
+  }
+
+  if (block.kind === 'channel') {
+    return 150;
+  }
+
+  const text = block.title || block.text || block.description || '';
+  if (block.kind === 'text' || text) {
+    const approxLines = Math.ceil(String(text).replace(/<[^>]+>/g, '').length / 24);
+    return Math.min(maxHeight, Math.max(90, approxLines * 22 + paddingAndBorder));
+  }
+
+  return 180;
+}
+
+function updateFlowImageMeasurement(blockId, width, height) {
+  const id = String(blockId);
+  const previous = STATE.flowImageMeasurements[id];
+
+  if (previous?.width === width && previous?.height === height) {
+    return;
+  }
+
+  STATE.flowImageMeasurements[id] = { width, height };
+
+  if (STATE.layoutMode !== 'flow' || !STATE.flow) {
+    return;
+  }
+
+  if (STATE.flow.measurementFrame) {
+    cancelAnimationFrame(STATE.flow.measurementFrame);
+  }
+
+  STATE.flow.measurementFrame = requestAnimationFrame(() => {
+    if (!STATE.flow || STATE.layoutMode !== 'flow') {
+      return;
+    }
+
+    STATE.flow.measurementFrame = null;
+    STATE.flow.pattern = buildFlowPattern();
+    renderFlowViewport();
+  });
+}
+
+function buildFlowPattern() {
+  const blocks = getOrderedFlowBlocks();
+  const gap = getFlowGapPixels();
+  const blockWidth = CONFIG.flowBlockWidth;
+  const columnPitch = blockWidth + gap;
+  const viewportColumns = Math.ceil((window.innerWidth + gap) / columnPitch);
+  const columnCount = Math.max(2, viewportColumns + 2);
+  const columns = Array.from({ length: columnCount }, (_, index) => ({
+    index,
+    x: index * columnPitch,
+    height: 0,
+    items: []
+  }));
+
+  blocks.forEach((block, index) => {
+    let column = 0;
+    for (let current = 1; current < columns.length; current += 1) {
+      if (columns[current].height < columns[column].height) {
+        column = current;
+      }
+    }
+
+    const height = estimateFlowBlockHeight(block);
+    const y = columns[column].height;
+
+    columns[column].items.push({
+      block,
+      blockIndex: index,
+      y,
+      width: blockWidth,
+      height
+    });
+
+    columns[column].height += height + gap;
+  });
+
+  columns.forEach(column => {
+    column.height = Math.max(column.height, window.innerHeight + gap);
+  });
+
+  return {
+    gap,
+    blockWidth,
+    columnPitch,
+    columns,
+    width: columnCount * columnPitch,
+    hasItems: columns.some(column => column.items.length > 0)
+  };
+}
+
+function createFlowSurface() {
+  let surface = document.getElementById('flow-surface');
+  if (surface) {
+    return surface;
+  }
+
+  surface = document.createElement('div');
+  surface.id = 'flow-surface';
+  document.body.appendChild(surface);
+  return surface;
+}
+
+function clearFlowInstances() {
+  if (!STATE.flow) {
+    return;
+  }
+
+  const elements = [
+    ...Array.from(STATE.flow.visible?.values() || []),
+    ...(STATE.flow.pool || [])
+  ];
+
+  elements.forEach(element => {
+    if (element._imageObserver) {
+      element._imageObserver.disconnect();
+    }
+    element.remove();
+  });
+  STATE.flow.visible.clear();
+  STATE.flow.pool = [];
+}
+
+function removeFlowSurface() {
+  const surface = document.getElementById('flow-surface');
+  if (surface) {
+    surface.remove();
+  }
+}
+
+function findFirstVisibleFlowItem(items, localTop) {
+  let low = 0;
+  let high = items.length;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid].y + items[mid].height < localTop) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
+}
+
+function findPastVisibleFlowItem(items, localBottom) {
+  let low = 0;
+  let high = items.length;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid].y <= localBottom) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
+}
+
+function renderFlowViewport() {
+  if (STATE.layoutMode !== 'flow' || !STATE.flow) {
+    return;
+  }
+
+  const flow = STATE.flow;
+  const { pattern } = flow;
+  if (!pattern.hasItems) {
+    return;
+  }
+
+  const buffer = CONFIG.flowRenderBuffer;
+  const viewport = {
+    left: -buffer,
+    top: -buffer,
+    right: window.innerWidth + buffer,
+    bottom: window.innerHeight + buffer
+  };
+
+  const minTileX = Math.floor((-flow.offsetX - buffer) / pattern.width) - 1;
+  const maxTileX = Math.ceil((-flow.offsetX + window.innerWidth + buffer) / pattern.width) + 1;
+  const visibleKeys = new Set();
+  const placements = [];
+
+  for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
+    pattern.columns.forEach(column => {
+      if (!column.items.length) {
+        return;
+      }
+
+      const screenX = column.x + tileX * pattern.width + flow.offsetX;
+      if (screenX + pattern.blockWidth < viewport.left || screenX > viewport.right) {
+        return;
+      }
+
+      const minCycleY = Math.floor((-flow.offsetY - buffer) / column.height) - 1;
+      const maxCycleY = Math.ceil((-flow.offsetY + window.innerHeight + buffer) / column.height) + 1;
+
+      for (let cycleY = minCycleY; cycleY <= maxCycleY; cycleY += 1) {
+        const localTop = viewport.top - flow.offsetY - cycleY * column.height;
+        const localBottom = viewport.bottom - flow.offsetY - cycleY * column.height;
+        const startIndex = findFirstVisibleFlowItem(column.items, localTop);
+        const endIndex = findPastVisibleFlowItem(column.items, localBottom);
+
+        for (let itemIndex = startIndex; itemIndex < endIndex; itemIndex += 1) {
+          const item = column.items[itemIndex];
+          const screenY = item.y + cycleY * column.height + flow.offsetY;
+
+          if (screenY + item.height < viewport.top || screenY > viewport.bottom) {
+            continue;
+          }
+
+          const key = `${tileX}:${column.index}:${cycleY}:${item.blockIndex}`;
+          visibleKeys.add(key);
+          placements.push({ key, item, x: screenX, y: screenY });
+        }
+      }
+    });
+  }
+
+  flow.visible.forEach((element, key) => {
+    if (!visibleKeys.has(key)) {
+      releaseFlowBlockElement(key, element);
+    }
+  });
+
+  placements.forEach(placement => {
+    let element = flow.visible.get(placement.key);
+    if (!element) {
+      element = acquireFlowBlockElement(placement.item.block, placement.key);
+      flow.surface.appendChild(element);
+      flow.visible.set(placement.key, element);
+    } else if (element._flowBlockId !== String(placement.item.block.id)) {
+      bindFlowBlockElement(element, placement.item.block, placement.key);
+    }
+
+    positionFlowBlockElement(element, placement.item, placement.x, placement.y);
+  });
+}
+
+function acquireFlowBlockElement(block, key) {
+  const element = STATE.flow.pool.pop() || createBlockElement(block, {
+    appendToDocument: false,
+    draggable: false,
+    wheelRotation: false,
+    flowInstance: true,
+    instanceKey: key
+  });
+
+  bindFlowBlockElement(element, block, key);
+  element.style.display = '';
+  return element;
+}
+
+function bindFlowBlockElement(element, block, key) {
+  element.dataset.flowInstance = key;
+  element._flowBlockId = String(block.id);
+  bindBlockElement(element, block);
+}
+
+function positionFlowBlockElement(element, item, x, y) {
+  element.style.width = `${item.width}px`;
+  element.style.maxWidth = `${item.width}px`;
+  element.style.height = `${item.height}px`;
+  element.style.maxHeight = `${item.height}px`;
+  element.style.transform = `translate(${x}px, ${y}px) rotate(0deg)`;
+}
+
+function releaseFlowBlockElement(key, element) {
+  STATE.flow.visible.delete(key);
+  element.style.display = 'none';
+  element.style.transform = 'translate(-10000px, -10000px) rotate(0deg)';
+  STATE.flow.pool.push(element);
+}
+
+function requestFlowRender() {
+  if (!STATE.flow || STATE.flow.renderFrame) {
+    return;
+  }
+
+  STATE.flow.renderFrame = requestAnimationFrame(() => {
+    if (!STATE.flow) {
+      return;
+    }
+    STATE.flow.renderFrame = null;
+    renderFlowViewport();
+  });
+}
+
+function moveFlowViewport(deltaX, deltaY) {
+  if (!STATE.flow) {
+    return;
+  }
+
+  STATE.flow.offsetX -= deltaX;
+  STATE.flow.offsetY -= deltaY;
+  requestFlowRender();
+}
+
+function handleFlowWheel(event) {
+  if (STATE.layoutMode !== 'flow') {
+    return;
+  }
+
+  event.preventDefault();
+  moveFlowViewport(event.deltaX, event.deltaY);
+}
+
+function handleFlowPointerDown(event) {
+  if (STATE.layoutMode !== 'flow' || event.button !== 0) {
+    return;
+  }
+
+  const ignoredSelectors = '#header-bar, #detail-view, .modal-dialog';
+  if (event.target.closest(ignoredSelectors)) {
+    return;
+  }
+
+  STATE.flow.isDragging = true;
+  STATE.flow.dragPointerId = event.pointerId;
+  STATE.flow.lastPointerX = event.clientX;
+  STATE.flow.lastPointerY = event.clientY;
+  document.body.classList.add('flow-dragging');
+
+  if (event.target.setPointerCapture) {
+    event.target.setPointerCapture(event.pointerId);
+  }
+}
+
+function handleFlowPointerMove(event) {
+  if (!STATE.flow?.isDragging || STATE.flow.dragPointerId !== event.pointerId) {
+    return;
+  }
+
+  const deltaX = event.clientX - STATE.flow.lastPointerX;
+  const deltaY = event.clientY - STATE.flow.lastPointerY;
+  STATE.flow.lastPointerX = event.clientX;
+  STATE.flow.lastPointerY = event.clientY;
+  moveFlowViewport(-deltaX, -deltaY);
+}
+
+function endFlowPointerDrag(event) {
+  if (!STATE.flow?.isDragging || STATE.flow.dragPointerId !== event.pointerId) {
+    return;
+  }
+
+  STATE.flow.isDragging = false;
+  STATE.flow.dragPointerId = null;
+  document.body.classList.remove('flow-dragging');
+}
+
+function enterFlowMode() {
+  if (!STATE.allFetchedBlocks.length) {
+    return;
+  }
+
+  clearInterval(STATE.loadIntervalId);
+  STATE.loadIntervalId = null;
+  clearRenderedBlocks();
+
+  document.body.classList.add('flow-mode');
+
+  STATE.flow = {
+    offsetX: 0,
+    offsetY: 0,
+    pattern: buildFlowPattern(),
+    surface: createFlowSurface(),
+    visible: new Map(),
+    pool: [],
+    isDragging: false,
+    dragPointerId: null,
+    lastPointerX: 0,
+    lastPointerY: 0,
+    measurementFrame: null,
+    renderFrame: null
+  };
+
+  STATE.flow.surface.addEventListener('wheel', handleFlowWheel, { passive: false });
+  document.addEventListener('pointerdown', handleFlowPointerDown);
+  document.addEventListener('pointermove', handleFlowPointerMove);
+  document.addEventListener('pointerup', endFlowPointerDrag);
+  document.addEventListener('pointercancel', endFlowPointerDrag);
+  renderFlowViewport();
+}
+
+function exitFlowMode() {
+  if (!STATE.flow) {
+    document.body.classList.remove('flow-mode', 'flow-dragging');
+    removeFlowSurface();
+    return;
+  }
+
+  if (STATE.flow.renderFrame) {
+    cancelAnimationFrame(STATE.flow.renderFrame);
+  }
+  if (STATE.flow.measurementFrame) {
+    cancelAnimationFrame(STATE.flow.measurementFrame);
+  }
+
+  STATE.flow.surface.removeEventListener('wheel', handleFlowWheel);
+  document.removeEventListener('pointerdown', handleFlowPointerDown);
+  document.removeEventListener('pointermove', handleFlowPointerMove);
+  document.removeEventListener('pointerup', endFlowPointerDrag);
+  document.removeEventListener('pointercancel', endFlowPointerDrag);
+  clearFlowInstances();
+  removeFlowSurface();
+  STATE.flow = null;
+  document.body.classList.remove('flow-mode', 'flow-dragging');
+  renderInitialBlocksForCurrentChannel();
+}
+
+function renderInitialBlocksForCurrentChannel() {
+  clearRenderedBlocks();
+  STATE.visibleBlockIds = new Set();
+
+  const maxBlocks = isMobileDevice()
+    ? Math.min(CONFIG.blocksPerLoad, STATE.cachedBlockOrder.length || STATE.allFetchedBlocks.length)
+    : Math.min(CONFIG.maxBlocks || STATE.allFetchedBlocks.length, STATE.cachedBlockOrder.length || STATE.allFetchedBlocks.length);
+
+  const orderedIds = STATE.cachedBlockOrder.length > 0
+    ? STATE.cachedBlockOrder
+    : STATE.allFetchedBlocks.map(block => String(block.id));
+
+  const blocksToRender = orderedIds.slice(0, maxBlocks);
+  renderBlockBatch(blocksToRender);
+  STATE.currentlyDisplayedBlocks = blocksToRender.length;
+
+  if (isMobileDevice() && STATE.currentlyDisplayedBlocks < STATE.allFetchedBlocks.length) {
+    STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
+  }
+}
+
 // Add new function to reset tile button
 function resetTileButton() {
-  const tileButton = document.getElementById('tile-button');
-  const moreTileButton = document.getElementById('more-tile-button');
-  tileButton.textContent = 'tile';
-  if (moreTileButton) {
-    moreTileButton.textContent = 'tile';
+  if (STATE.layoutMode === 'flow') {
+    exitFlowMode();
   }
-  STATE.isTiled = false;
+  STATE.layoutMode = 'mix';
+  setLayoutButtonText('tile');
 }
 
 // Add new function to show current channel detail

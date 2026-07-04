@@ -9,6 +9,16 @@ function temporaryRaiseBlock(element) {
 }
 
 function commitRaiseBlock(element) {
+  if (STATE.layoutMode === 'flow' || element.dataset.flowInstance) {
+    if (element._raiseTimer) {
+      clearTimeout(element._raiseTimer);
+      element._raiseTimer = null;
+    }
+    element.style.zIndex = '';
+    element._tempRaised = false;
+    return;
+  }
+
   if (element._raiseTimer) {
     clearTimeout(element._raiseTimer);
     element._raiseTimer = null;
@@ -19,7 +29,7 @@ function commitRaiseBlock(element) {
   element._tempRaised = false;
 
   const slug = STATE.channelSlugs[0];
-  const newOrder = Array.from(document.querySelectorAll('.block')).map(el => el.dataset.blockId);
+  const newOrder = Array.from(document.querySelectorAll('.block:not([data-flow-instance])')).map(el => el.dataset.blockId);
   STATE.cachedBlockOrder = newOrder;
 
   arenaDB.getChannel(slug).then(cachedData => {
@@ -44,6 +54,10 @@ function handleTouchEnd(event) {
 }
 
 function handleWheelRotation(event) {
+  if (STATE.layoutMode === 'flow') {
+    return;
+  }
+
   const block = event.currentTarget;
   let currentRotation = 0;
   const transform = block.style.transform;
@@ -65,6 +79,10 @@ function handleWheelRotation(event) {
 }
 
 function makeDraggable(element) {
+  if (element.dataset.flowInstance) {
+    return;
+  }
+
   let offsetX = 0;
   let offsetY = 0;
   let startX = 0;
@@ -188,10 +206,29 @@ function makeDraggable(element) {
 }
 
 function renderBlock(block) {
+  return createBlockElement(block, {
+    appendToDocument: true,
+    draggable: true,
+    wheelRotation: true
+  });
+}
+
+function createBlockElement(block, options = {}) {
+  const settings = {
+    appendToDocument: true,
+    draggable: true,
+    wheelRotation: true,
+    flowInstance: false,
+    instanceKey: '',
+    ...options
+  };
+
   const blockElement = document.createElement('div');
   blockElement.classList.add('block');
-  blockElement.dataset.blockId = block.id;
-  blockElement.dataset.blockKind = block.kind;
+  if (settings.flowInstance) {
+    blockElement.dataset.flowInstance = settings.instanceKey || String(block.id);
+    blockElement.classList.add('flow-block');
+  }
 
   if (!('ontouchstart' in window)) {
     blockElement.addEventListener('click', event => temporaryRaiseBlock(event.currentTarget));
@@ -203,36 +240,56 @@ function renderBlock(block) {
     blockElement.addEventListener('touchend', handleTouchEnd);
   }
 
-  blockElement.addEventListener('wheel', handleWheelRotation);
+  if (settings.wheelRotation) {
+    blockElement.addEventListener('wheel', handleWheelRotation);
+  }
+
+  bindBlockElement(blockElement, block);
+
+  if (settings.appendToDocument) {
+    document.body.appendChild(blockElement);
+  }
+  if (settings.draggable) {
+    makeDraggable(blockElement);
+  }
+
+  return blockElement;
+}
+
+function bindBlockElement(element, block) {
+  if (element._imageObserver) {
+    element._imageObserver.disconnect();
+    element._imageObserver = null;
+  }
+
+  element.replaceChildren();
+  element.className = element.dataset.flowInstance ? 'block flow-block' : 'block';
+  element.dataset.blockId = block.id;
+  element.dataset.blockKind = block.kind;
 
   switch (block.kind) {
     case 'channel':
-      renderChannelBlock(blockElement, block);
+      renderChannelBlock(element, block);
       break;
     case 'image':
-      renderImageBlock(blockElement, block);
+      renderImageBlock(element, block);
       break;
     case 'text':
-      renderTextBlock(blockElement, block);
+      renderTextBlock(element, block);
       break;
     case 'link':
-      renderLinkBlock(blockElement, block);
+      renderLinkBlock(element, block);
       break;
     case 'attachment':
-      renderAttachmentBlock(blockElement, block);
+      renderAttachmentBlock(element, block);
       break;
     case 'embed':
-      renderEmbedBlock(blockElement, block);
+      renderEmbedBlock(element, block);
       break;
     default:
-      renderFallbackBlock(blockElement, block);
+      renderFallbackBlock(element, block);
       break;
   }
-
-  document.body.appendChild(blockElement);
-  makeDraggable(blockElement);
-
-  return blockElement;
 }
 
 function renderChannelBlock(element, block) {
@@ -259,29 +316,48 @@ function appendPreviewImage(element, block, options = {}) {
     return null;
   }
 
+  element.classList.add('preview-image-block');
+  const imageToken = `${block.id}:${Date.now()}:${Math.random()}`;
+  element._imageToken = imageToken;
+
+  const initialVersion = versions.thumb || versions.preview || versions.display || versions.large || versions.original;
+  const ratioSource = versions.original || versions.large || versions.display || initialVersion;
+  const ratioWidth = versions.width || ratioSource?.width || initialVersion?.width;
+  const ratioHeight = versions.height || ratioSource?.height || initialVersion?.height;
+  const shouldUseObserver = options.useObserver !== false;
+
   const placeholder = document.createElement('div');
   placeholder.className = 'image-placeholder';
+  if (ratioWidth && ratioHeight) {
+    placeholder.style.aspectRatio = `${ratioWidth} / ${ratioHeight}`;
+    placeholder.style.height = 'auto';
+  }
   element.appendChild(placeholder);
 
   const img = document.createElement('img');
   img.style.display = 'none';
   img.draggable = false;
 
-  const initialVersion = versions.thumb || versions.preview || versions.display || versions.large || versions.original;
   if (initialVersion?.url) {
-    if (initialVersion.width) {
-      img.width = initialVersion.width;
+    if (ratioWidth) {
+      img.width = ratioWidth;
     }
-    if (initialVersion.height) {
-      img.height = initialVersion.height;
+    if (ratioHeight) {
+      img.height = ratioHeight;
     }
-    if (initialVersion.width && initialVersion.height) {
-      img.style.aspectRatio = `${initialVersion.width} / ${initialVersion.height}`;
+    if (ratioWidth && ratioHeight) {
+      img.style.aspectRatio = `${ratioWidth} / ${ratioHeight}`;
     }
     img.src = initialVersion.url;
   }
 
   img.onload = () => {
+    if (element._imageToken !== imageToken) {
+      return;
+    }
+    if (element.dataset.flowInstance && img.naturalWidth && img.naturalHeight) {
+      updateFlowImageMeasurement(block.id, img.naturalWidth, img.naturalHeight);
+    }
     img.style.display = 'block';
     placeholder.style.display = 'none';
   };
@@ -290,9 +366,11 @@ function appendPreviewImage(element, block, options = {}) {
 
   function loadHigherQualityImage() {
     const isMobile = isMobileDevice();
-    const targetVersion = options.fullResolution
-      ? versions.original || versions.large || versions.display
-      : (isMobile ? versions.display || versions.large : versions.large || versions.original || versions.display);
+    const targetVersion = options.flowPreview
+      ? versions.display || versions.large || versions.preview || versions.original
+      : (options.fullResolution
+        ? versions.original || versions.large || versions.display
+        : (isMobile ? versions.display || versions.large : versions.large || versions.original || versions.display));
 
     if (!targetVersion?.url || targetVersion.url === img.src) {
       return;
@@ -303,14 +381,14 @@ function appendPreviewImage(element, block, options = {}) {
       console.warn(`Failed to load image: ${targetVersion.url}`);
     };
     highResImage.onload = () => {
-      if (element.isConnected && img.isConnected) {
+      if (element._imageToken === imageToken && element.isConnected && img.isConnected) {
         img.src = highResImage.src;
       }
     };
     highResImage.src = targetVersion.url;
   }
 
-  if ('IntersectionObserver' in window) {
+  if (shouldUseObserver && 'IntersectionObserver' in window) {
     const observer = new IntersectionObserver((entries, currentObserver) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -334,11 +412,19 @@ function appendPreviewImage(element, block, options = {}) {
 
 function renderImageBlock(element, block) {
   element.classList.add('image-block');
-  appendPreviewImage(element, block, { fullResolution: false });
+  appendPreviewImage(element, block, {
+    fullResolution: false,
+    flowPreview: Boolean(element.dataset.flowInstance),
+    useObserver: !element.dataset.flowInstance
+  });
 }
 
 function renderLinkBlock(element, block) {
-  const previewImage = appendPreviewImage(element, block, { fullResolution: false });
+  const previewImage = appendPreviewImage(element, block, {
+    fullResolution: false,
+    flowPreview: Boolean(element.dataset.flowInstance),
+    useObserver: !element.dataset.flowInstance
+  });
 
   if (previewImage) {
     return;
@@ -351,7 +437,11 @@ function renderLinkBlock(element, block) {
 }
 
 function renderAttachmentBlock(element, block) {
-  const previewImage = appendPreviewImage(element, block, { fullResolution: false });
+  const previewImage = appendPreviewImage(element, block, {
+    fullResolution: false,
+    flowPreview: Boolean(element.dataset.flowInstance),
+    useObserver: !element.dataset.flowInstance
+  });
 
   if (previewImage) {
     return;
@@ -363,7 +453,11 @@ function renderAttachmentBlock(element, block) {
 }
 
 function renderEmbedBlock(element, block) {
-  const previewImage = appendPreviewImage(element, block, { fullResolution: false });
+  const previewImage = appendPreviewImage(element, block, {
+    fullResolution: false,
+    flowPreview: Boolean(element.dataset.flowInstance),
+    useObserver: !element.dataset.flowInstance
+  });
 
   if (previewImage) {
     return;
@@ -414,6 +508,15 @@ function updateBlockPosition(block, x, y, rotation) {
 }
 
 const handleResize = throttle(() => {
+  if (STATE.layoutMode === 'flow') {
+    if (STATE.flow) {
+      clearFlowInstances();
+      STATE.flow.pattern = buildFlowPattern();
+      renderFlowViewport();
+    }
+    return;
+  }
+
   const viewport = {
     minX: 0,
     minY: 0,

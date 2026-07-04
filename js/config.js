@@ -14,6 +14,10 @@ const CONFIG = {
   userOverrideBlockLimit: false,     // Whether the user has chosen to override the block limit
   additionalLoadStep: 50,            // Number of additional blocks to load when the user overrides the limit
   maxBlocksAfterOverride: isMobileDevice() ? 1000 : 5000, // Maximum blocks after user override
+  flowGapRem: 1,
+  flowBlockWidth: 200,
+  flowBlockMaxHeight: 300,
+  flowRenderBuffer: isMobileDevice() ? 500 : 800,
   version: '3.5.0' // Version increment for the block limit warning feature
 };
 
@@ -33,5 +37,8 @@ const STATE = {
   cachedBlockPositions: {},
   cachedBlockOrder: [],
   visibleBlockIds: new Set(),
-  lastTouchEnd: 0
+  lastTouchEnd: 0,
+  layoutMode: 'mix',
+  flow: null,
+  flowImageMeasurements: {}
 };
