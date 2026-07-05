@@ -624,10 +624,10 @@ function setupCommentsSection(block, requestToken) {
 // "Connect" meta section: add this block to one of your channels.
 // Requires login with a write-scope token; read-only tokens get a
 // clear explanation instead of a raw 403.
-// "Connect" action: a button in the block detail that opens a searchable
-// picker of your channels as a stacked panel. Requires login with a
-// write-scope token; read-only tokens get a clear explanation, not a 403.
-function setupConnectSection(block, requestToken) {
+// "Connect" action: a button in the block or channel detail that opens a
+// searchable picker of your channels as a stacked panel. Requires login
+// with a write-scope token; read-only tokens get a clear explanation.
+function setupConnectSection(item, requestToken) {
   if (typeof isLoggedIn !== "function" || !isLoggedIn()) {
     return;
   }
@@ -641,7 +641,7 @@ function setupConnectSection(block, requestToken) {
   button.className = "detail-action-button";
   button.textContent = "+ Connect to Channel";
   button.addEventListener("click", () => {
-    showConnectPickerPanel(block);
+    showConnectPickerPanel(item);
   });
 
   slot.appendChild(button);
@@ -734,7 +734,9 @@ function createSearchableList(options = {}) {
 }
 
 // Stacked panel listing your channels; selecting one connects the block.
-function showConnectPickerPanel(block) {
+function showConnectPickerPanel(item) {
+  const isChannel = item.kind === "channel";
+  const connectableType = isChannel ? "Channel" : "Block";
   pushDetailView();
   const requestToken = beginDetailRequest();
   resetDetailPanels();
@@ -743,7 +745,10 @@ function showConnectPickerPanel(block) {
   titleElement.textContent = "Connect to Channel";
   titleElement.title = "Connect to Channel";
   document.getElementById("detail-view-arena-link").href =
-    block.arenaUrl || `https://www.are.na/block/${block.id}`;
+    item.arenaUrl ||
+    (isChannel
+      ? `https://www.are.na/channel/${item.slug}`
+      : `https://www.are.na/block/${item.id}`);
 
   const list = createSearchableList({
     placeholder: "search your channels...",
@@ -758,9 +763,11 @@ function showConnectPickerPanel(block) {
       if (!isDetailTokenActive(requestToken)) {
         return;
       }
-      const channels = cache?.items || [];
+      const channels = (cache?.items || []).filter(
+        (ch) => !(isChannel && (ch.slug === item.slug || ch.id === item.id)),
+      );
       if (channels.length === 0) {
-        list.setHint("no channels yet, create one on are.na first");
+        list.setHint("no channels available");
         return;
       }
       list.setItems(
@@ -772,7 +779,8 @@ function showConnectPickerPanel(block) {
               ? `${channel.counts.contents} blocks`
               : "",
           keywords: `${channel.title || ""} ${channel.slug || ""}`,
-          onSelect: (row) => connectBlockToChannel(block, channel, row),
+          onSelect: (row) =>
+            connectItemToChannel(item, connectableType, channel, row),
         })),
       );
     })
@@ -783,7 +791,7 @@ function showConnectPickerPanel(block) {
     });
 }
 
-async function connectBlockToChannel(block, channel, row) {
+async function connectItemToChannel(item, connectableType, channel, row) {
   if (row.disabled) {
     return;
   }
@@ -793,11 +801,14 @@ async function connectBlockToChannel(block, channel, row) {
   info.textContent = "connecting...";
 
   try {
-    const connection = await arenaAPI.createConnection(block.id, channel.id);
-    // Back to the block detail; the toast carries the undo.
+    const connection = await arenaAPI.createConnection(
+      item.id,
+      channel.id,
+      connectableType,
+    );
     closeDetailView();
     showToast({
-      message: `Connected to “${channel.title || "channel"}”`,
+      message: `Connected to "${channel.title || "channel"}"`,
       actionLabel: "undo",
       seconds: 3,
       onAction: async () => {
@@ -817,7 +828,7 @@ async function connectBlockToChannel(block, channel, row) {
     if (String(error.message).includes("403")) {
       showToast({
         message:
-          "Your token is read-only, create one with write scope to connect blocks",
+          "Your token is read-only, create one with write scope to connect",
         seconds: 6,
       });
     } else {
@@ -1038,6 +1049,7 @@ async function showChannelDetailBySlug(slug, options = {}) {
       followerResult.status === "fulfilled" ? followerResult.value : 0;
     renderChannelDetailContent(channelResult.value, followerCount, options);
     setupConnectionsSection(channelResult.value, requestToken);
+    setupConnectSection(channelResult.value, requestToken);
   } catch (error) {
     console.error("Error fetching channel details:", error);
     if (isDetailTokenActive(requestToken)) {
@@ -1122,6 +1134,7 @@ function showHelpView() {
       <h2>Surfing</h2>
       <ul>
         <li>In block details, <b>Connections</b> lists every channel the block lives in, open one to peek at it, it stacks on top so you never lose your place</li>
+        <li>The ✱ logo in any detail panel links directly to that content on are.na</li>
         <li><b>random surf</b> in the ✱ menu picks a random block and follows a random connection</li>
         <li><b>recently surfed</b> in the ✱ menu takes you back to where you have been</li>
       </ul>
@@ -1705,7 +1718,7 @@ function buildFlowPattern() {
   });
 
   columns.forEach((column) => {
-    column.height = Math.max(column.height, window.innerHeight + gap);
+    column.height += gap;
   });
 
   return {

@@ -1,332 +1,337 @@
 #header-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 35px;
-  background-color: var(--header-bg);
-  border-bottom: 1px solid var(--header-border);
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  z-index: 10001;
-  gap: 10px;
-  font-size: 14px;
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
-  user-select: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 35px;
+    background-color: var(--header-bg);
+    border-bottom: 1px solid var(--header-border);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    z-index: 10001;
+    gap: 10px;
+    font-size: 14px;
+    font-family:
+        ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
+        "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro",
+        "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+    user-select: none;
 }
 
 #header-bar-logo {
-  display: flex;
-  position: relative;
+    display: flex;
+    position: relative;
 }
 
 #app-menu-button {
-  display: flex;
-  align-items: center;
-  height: 24px;
-  padding: 2px;
-  background: none;
-  border: none;
-  cursor: pointer;
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding: 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
 }
 
 #app-menu-button svg {
-  width: 20px;
-  height: 20px;
+    width: 20px;
+    height: 20px;
 }
 
 #app-menu-button svg path {
-  fill: var(--icon-color);
-  transition: opacity 0.2s ease;
+    fill: var(--icon-color);
+    transition: opacity 0.2s ease;
 }
 
 #app-menu-button:hover svg path {
-  opacity: 0.7;
+    opacity: 0.7;
 }
 
 /* App menu (context menu behind the logo). No container padding: rows and
    separators run edge to edge, table-like. */
 #app-menu {
-  display: none;
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 190px;
-  max-width: min(320px, 85vw);
-  background-color: var(--header-bg);
-  border: 1px solid var(--header-border);
-  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.25);
-  flex-direction: column;
-  z-index: 10004;
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 190px;
+    max-width: min(320px, 85vw);
+    background-color: var(--header-bg);
+    border: 1px solid var(--header-border);
+    box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.25);
+    flex-direction: column;
+    z-index: 10004;
 }
 
 #app-menu.show {
-  display: flex;
+    display: flex;
 }
 
 .app-menu-item {
-  position: relative;
+    position: relative;
 }
 
 .app-menu-item > button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--text-color);
-  font-family: inherit;
-  font-size: 14px;
-  padding: 6px 8px;
-  cursor: pointer;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 6px 8px;
+    cursor: pointer;
 }
 
 .app-menu-item > button:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 .app-menu-item .app-menu-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .app-menu-item .submenu-arrow {
-  opacity: 0.6;
-  flex-shrink: 0;
+    opacity: 0.6;
+    flex-shrink: 0;
 }
 
 .app-menu-separator {
-  border-top: 1px solid var(--header-border);
+    border-top: 1px solid var(--header-border);
 }
 
 .app-menu-hint,
 .channel-dropdown-hint {
-  padding: 6px 8px;
-  font-size: 12px;
-  opacity: 0.6;
+    padding: 6px 8px;
+    font-size: 12px;
+    opacity: 0.6;
 }
 
 .app-submenu {
-  display: none;
-  flex-direction: column;
-  max-height: 50vh;
-  overflow-y: auto;
+    display: none;
+    flex-direction: column;
+    max-height: 50vh;
+    overflow-y: auto;
 }
 
 .app-menu-item.open > .app-submenu {
-  display: flex;
+    display: flex;
 }
 
 /* Desktop: fly out to the right of the parent item, opening on hover */
 @media (min-width: 769px) {
-  .app-submenu {
-    position: absolute;
-    left: calc(100% + 5px);
-    top: -1px;
-    min-width: 200px;
-    max-width: min(320px, 60vw);
-    background-color: var(--header-bg);
-    border: 1px solid var(--header-border);
-    box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.25);
-    z-index: 10005;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    /* Cover the gap between item and submenu so hover doesn't drop out */
-    .app-menu-item.has-submenu:hover::after {
-      content: '';
-      position: absolute;
-      left: 100%;
-      top: 0;
-      width: 6px;
-      height: 100%;
+    .app-submenu {
+        position: absolute;
+        left: calc(100% + 5px);
+        top: -1px;
+        min-width: 200px;
+        max-width: min(320px, 60vw);
+        background-color: var(--header-bg);
+        border: 1px solid var(--header-border);
+        box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.25);
+        z-index: 10005;
     }
 
-    .app-menu-item.has-submenu:hover > .app-submenu {
-      display: flex;
-    }
+    @media (hover: hover) and (pointer: fine) {
+        /* Cover the gap between item and submenu so hover doesn't drop out */
+        .app-menu-item.has-submenu:hover::after {
+            content: "";
+            position: absolute;
+            left: 100%;
+            top: 0;
+            width: 6px;
+            height: 100%;
+        }
 
-    .app-menu-item.has-submenu:hover > button {
-      background-color: var(--button-hover);
+        .app-menu-item.has-submenu:hover > .app-submenu {
+            display: flex;
+        }
+
+        .app-menu-item.has-submenu:hover > button {
+            background-color: var(--button-hover);
+        }
     }
-  }
 }
 
 /* Mobile: expand inline (indented) so nothing overflows the screen */
 @media (max-width: 768px) {
-  .app-submenu {
-    margin-left: 10px;
-    border-left: 2px solid var(--header-border);
-  }
+    .app-submenu {
+        margin-left: 10px;
+        border-left: 2px solid var(--header-border);
+    }
 }
 
 .app-submenu button {
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--text-color);
-  font-family: inherit;
-  font-size: 13px;
-  padding: 5px 8px;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 5px 8px;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .app-submenu button:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 .app-menu-avatar {
-  width: 16px;
-  height: 16px;
-  object-fit: cover;
-  border: 1px solid var(--header-border);
-  vertical-align: -3px;
-  margin-right: 6px;
+    width: 16px;
+    height: 16px;
+    object-fit: cover;
+    border: 1px solid var(--header-border);
+    vertical-align: -3px;
+    margin-right: 6px;
 }
 
 /* Submenu row with a dim right-aligned annotation (relative time) */
 .app-submenu .submenu-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
 }
 
 .submenu-row-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .submenu-row-note {
-  flex-shrink: 0;
-  font-size: 11px;
-  opacity: 0.5;
+    flex-shrink: 0;
+    font-size: 11px;
+    opacity: 0.5;
 }
 
 .app-submenu .submenu-view-all {
-  border-top: 1px solid var(--header-border);
-  color: var(--link-color);
+    border-top: 1px solid var(--header-border);
+    color: var(--link-color);
 }
 
 /* Channel visibility colors */
 .vis-public {
-  color: var(--vis-public-color);
+    color: var(--vis-public-color);
 }
 
 .vis-private {
-  color: var(--vis-private-color);
+    color: var(--vis-private-color);
 }
 
 .vis-closed {
-  color: var(--vis-closed-color);
+    color: var(--vis-closed-color);
 }
 
 #channel-input-group {
-  display: flex;
-  flex-grow: 1;
-  position: relative;
+    display: flex;
+    flex-grow: 1;
+    position: relative;
 }
 
 /* My-channels dropdown under the search input */
 #channel-dropdown {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  max-height: min(420px, 65vh);
-  overflow-y: auto;
-  background-color: var(--detail-bg);
-  border: 1px solid var(--block-border);
-  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.25);
-  z-index: 10004;
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: min(420px, 65vh);
+    overflow-y: auto;
+    background-color: var(--detail-bg);
+    border: 1px solid var(--block-border);
+    box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.25);
+    z-index: 10004;
 }
 
 #channel-dropdown.show {
-  display: block;
+    display: block;
 }
 
 .channel-dropdown-header {
-  padding: 5px 8px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.5;
-  border-bottom: 1px solid var(--header-border);
-  position: sticky;
-  top: 0;
-  background-color: var(--detail-bg);
+    padding: 5px 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--header-border);
+    position: sticky;
+    top: 0;
+    background-color: var(--detail-bg);
 }
 
 .channel-dropdown-item {
-  width: 100%;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 6px 8px;
-  background: none;
-  border: none;
-  color: var(--text-color);
-  font-family: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 8px;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
 }
 
 .channel-dropdown-item:hover,
 .channel-dropdown-item.active {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 .channel-dropdown-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .channel-dropdown-count {
-  flex-shrink: 0;
-  font-size: 11px;
-  opacity: 0.5;
+    flex-shrink: 0;
+    font-size: 11px;
+    opacity: 0.5;
 }
 
 .channel-dropdown-load-more {
-  width: 100%;
-  padding: 6px 8px;
-  background: none;
-  border: none;
-  border-top: 1px solid var(--header-border);
-  color: var(--link-color);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
+    width: 100%;
+    padding: 6px 8px;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--header-border);
+    color: var(--link-color);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
 }
 
 .channel-dropdown-load-more:hover:not(:disabled) {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 #channel-slug-input {
-  flex-grow: 1;
-  height: 24px;
-  background-color: var(--block-bg);
-  color: var(--text-color);
-  border: 1px solid var(--block-border);
-  border-right: none;
-  padding: 0 5px;
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
-  font-size: 14px;
+    flex-grow: 1;
+    height: 24px;
+    background-color: var(--block-bg);
+    color: var(--text-color);
+    border: 1px solid var(--block-border);
+    border-right: none;
+    padding: 0 5px;
+    font-family:
+        ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
+        "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro",
+        "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+    font-size: 14px;
 }
 
 #goto-button,
@@ -334,19 +339,22 @@
 #theme-toggle,
 #more-button,
 .more-menu button {
-  height: 24px;
-  padding: 0 5px;
-  background-color: var(--button-bg);
-  border: 1px solid var(--block-border);
-  color: var(--text-color);
-  cursor: pointer;
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  width: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    height: 24px;
+    padding: 0 5px;
+    background-color: var(--button-bg);
+    border: 1px solid var(--block-border);
+    color: var(--text-color);
+    cursor: pointer;
+    font-family:
+        ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
+        "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro",
+        "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    width: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #goto-button:hover,
@@ -354,770 +362,789 @@
 #theme-toggle:hover,
 #more-button:hover,
 .more-menu button:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 #header-bar-placeholder {
-  width: 50px;
+    width: 50px;
 }
 
 #log-output {
-  position: fixed;
-  top: 50px;
-  left: 0;
-  width: 100%;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
-  color: var(--log-text);
-  background-color: var(--log-bg);
-  z-index: 99;
-  overflow: scroll;
-  max-height: 80vh;
-  display: none;
+    position: fixed;
+    top: 50px;
+    left: 0;
+    width: 100%;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family:
+        ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
+        "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro",
+        "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+    color: var(--log-text);
+    background-color: var(--log-bg);
+    z-index: 99;
+    overflow: scroll;
+    max-height: 80vh;
+    display: none;
 }
 
 #loading-container {
-  position: fixed;
-  top: 30px;
-  left: 0;
-  width: 100%;
-  height: 20px;
-  background-color: var(--loading-bg);
-  z-index: 9999;
-  display: none;
+    position: fixed;
+    top: 30px;
+    left: 0;
+    width: 100%;
+    height: 20px;
+    background-color: var(--loading-bg);
+    z-index: 9999;
+    display: none;
 }
 
 #loading-bar {
-  height: 100%;
-  width: 0;
-  background-color: var(--loading-bar);
-  transition: width 0.2s ease;
+    height: 100%;
+    width: 0;
+    background-color: var(--loading-bar);
+    transition: width 0.2s ease;
 }
 
 .detail-view {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 80%;
-  max-width: 800px;
-  max-height: 90vh;
-  background-color: var(--detail-bg);
-  border: 3px solid var(--detail-border);
-  box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  z-index: 10000;
-  display: none;
-  overflow-y: auto;
-  overflow-x: hidden;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 800px;
+    max-height: 90vh;
+    background-color: var(--detail-bg);
+    border: 3px solid var(--detail-border);
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+    display: none;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .detail-view-header {
-  position: sticky;
-  top: 0;
-  width: 100%;
-  background-color: var(--detail-header-bg);
-  padding: 0 10px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 10001;
-  border-bottom: 2px solid var(--detail-border);
-  overflow-x: hidden;
-  flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    width: 100%;
+    background-color: var(--detail-header-bg);
+    padding: 0 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10001;
+    border-bottom: 2px solid var(--detail-border);
+    overflow-x: hidden;
+    flex-shrink: 0;
 }
 
 .detail-view-header > div {
-  display: flex;
-  align-items: center;
-  /* gap: 10px; */ 
+    display: flex;
+    align-items: center;
+    /* gap: 10px; */
 }
 
 .detail-view-title {
-  font-size: 1.5em;
-  font-weight: bold;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 75%;
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 75%;
 }
 
 .detail-view-arena-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
-  touch-action: manipulation;
-  cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    touch-action: manipulation;
+    cursor: pointer;
 }
 
 .detail-view-arena-link svg {
-  width: 30px;
-  height: 30px;
+    width: 30px;
+    height: 30px;
 }
 
 .detail-view-arena-link svg path {
-  fill: var(--icon-color);
-  transition: opacity 0.2s ease;
+    fill: var(--icon-color);
+    transition: opacity 0.2s ease;
 }
 
 .detail-view-arena-link:hover svg path {
-  opacity: 0.7;
+    opacity: 0.7;
 }
 
 .detail-view-close-wrapper {
-  cursor: pointer;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
-  touch-action: manipulation;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    touch-action: manipulation;
 }
 
 .detail-view-close {
-  width: 30px;
-  height: 30px;
+    width: 30px;
+    height: 30px;
 }
 
 .detail-view-close svg {
-  width: 100%;
-  height: 100%;
+    width: 100%;
+    height: 100%;
 }
 
 .detail-view-close svg path {
-  stroke: var(--icon-color);
-  transition: opacity 0.2s ease;
+    stroke: var(--icon-color);
+    transition: opacity 0.2s ease;
 }
 
 .detail-view-close:hover svg path {
-  opacity: 0.7;
+    opacity: 0.7;
 }
 
 .detail-view-content-wrapper {
-  padding: 10px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  flex-grow: 1;
-  flex-shrink: 1;
+    padding: 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    flex-grow: 1;
+    flex-shrink: 1;
 }
 
 .detail-view-content img {
-  max-width: 100%;
-  height: auto;
+    max-width: 100%;
+    height: auto;
 }
 
 .detail-view-content p {
-  font-size: 1rem;
+    font-size: 1rem;
 }
 
-.detail-view-content div {
+/*.detail-view-content div {
   padding: 0 1em;
-}
+}*/
 
 .detail-view-meta {
-  background-color: var(--detail-meta-bg);
-  border-top: 1px solid var(--detail-border);
-  padding: 10px;
-  font-size: 12px;
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
-  z-index: 10001;
-  /* Two columns when the panel is wide enough; wide items span both. */
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  column-gap: 24px;
-  row-gap: 4px;
-  align-items: start;
+    background-color: var(--detail-meta-bg);
+    border-top: 1px solid var(--detail-border);
+    padding: 10px;
+    font-size: 12px;
+    font-family:
+        ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
+        "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro",
+        "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+    z-index: 10001;
+    /* Two columns when the panel is wide enough; wide items span both. */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    column-gap: 24px;
+    row-gap: 4px;
+    align-items: start;
 }
 
 .detail-view-meta:empty {
-  display: none;
+    display: none;
 }
 
 .meta-item {
-  margin-bottom: 0;
-  min-width: 0;
-  overflow-wrap: break-word;
+    margin-bottom: 0;
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .meta-item.meta-wide {
-  grid-column: 1 / -1;
+    grid-column: 1 / -1;
 }
 
 .meta-item a {
-  color: var(--link-color);
-  text-decoration: none;
+    color: var(--link-color);
+    text-decoration: none;
 }
 
 .meta-item a:hover {
-  text-decoration: underline;
+    text-decoration: underline;
 }
 
 /* Connections section inside detail-view meta */
 .connections-status {
-  opacity: 0.55;
+    opacity: 0.55;
 }
 
 .connections-toggle {
-  cursor: pointer;
+    cursor: pointer;
 }
 
 .connections-list {
-  display: none;
-  margin: 6px 0 8px;
-  border: 1px solid var(--header-border);
-  max-height: 240px;
-  overflow-y: auto;
-  background-color: var(--detail-bg);
+    display: none;
+    margin: 6px 0 8px;
+    border: 1px solid var(--header-border);
+    max-height: 240px;
+    overflow-y: auto;
+    background-color: var(--detail-bg);
 }
 
 .connections-list.show {
-  display: block;
+    display: block;
 }
 
 .connection-item {
-  width: 100%;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 5px 8px;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--header-border);
-  color: var(--text-color);
-  font-family: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 8px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--header-border);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
 }
 
 .connection-item:last-of-type {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .connection-item:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 .connection-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .connection-info {
-  flex-shrink: 0;
-  opacity: 0.55;
-  max-width: 45%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    flex-shrink: 0;
+    opacity: 0.55;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .connections-load-more {
-  width: 100%;
-  padding: 6px 8px;
-  background: none;
-  border: none;
-  border-top: 1px solid var(--header-border);
-  color: var(--link-color);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
+    width: 100%;
+    padding: 6px 8px;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--header-border);
+    color: var(--link-color);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
 }
 
 .connections-load-more:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 /* Comments inside the detail meta */
 .comment-item {
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--header-border);
-  font-size: 12px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--header-border);
+    font-size: 12px;
 }
 
 .comment-item:last-of-type {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .comment-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 2px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 2px;
 }
 
 .comment-author {
-  font-weight: bold;
-  color: var(--link-color);
-  text-decoration: none;
+    font-weight: bold;
+    color: var(--link-color);
+    text-decoration: none;
 }
 
 .comment-time {
-  flex-shrink: 0;
-  font-size: 11px;
-  opacity: 0.5;
+    flex-shrink: 0;
+    font-size: 11px;
+    opacity: 0.5;
 }
 
 .comment-body {
-  line-height: 1.45;
-  overflow-wrap: break-word;
+    line-height: 1.45;
+    overflow-wrap: break-word;
 }
 
 .comment-body p {
-  margin: 0 0 4px;
+    margin: 0 0 4px;
 }
 
 .comment-body p:last-child {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 /* Random surf: highlighted destination row */
 .connection-item.surf-target {
-  background-color: var(--button-hover);
-  outline: 2px solid var(--channel-block-border);
-  outline-offset: -2px;
-  animation: surf-target-pulse 0.7s ease-in-out infinite alternate;
+    background-color: var(--button-hover);
+    outline: 2px solid var(--channel-block-border);
+    outline-offset: -2px;
+    animation: surf-target-pulse 0.7s ease-in-out infinite alternate;
 }
 
 @keyframes surf-target-pulse {
-  from { opacity: 1; }
-  to { opacity: 0.55; }
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0.55;
+    }
 }
 
 /* Stacked detail panels: covered panels stay fully rendered, frozen behind
    a click-catcher; the stack cascades down-right. */
 .detail-view.detail-stacked {
-  overflow: hidden;
+    overflow: hidden;
 }
 
 .detail-stacked-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  z-index: 10002;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    z-index: 10002;
 }
 
 /* Toast: small self-dismissing notice with countdown + optional action */
 #app-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: min(520px, 90vw);
-  background-color: var(--detail-bg);
-  border: 2px solid var(--detail-border);
-  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.35);
-  padding: 8px 12px;
-  font-size: 13px;
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
-  color: var(--text-color);
-  z-index: 10006;
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(520px, 90vw);
+    background-color: var(--detail-bg);
+    border: 2px solid var(--detail-border);
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.35);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family:
+        ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
+        "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro",
+        "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+    color: var(--text-color);
+    z-index: 10006;
 }
 
 .toast-message {
-  overflow: hidden;
-  text-overflow: ellipsis;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #app-toast button {
-  flex-shrink: 0;
-  background: none;
-  border: 1px solid var(--block-border);
-  color: var(--text-color);
-  font-family: inherit;
-  font-size: 12px;
-  padding: 2px 8px;
-  cursor: pointer;
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--block-border);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 2px 8px;
+    cursor: pointer;
 }
 
 #app-toast button:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 #app-toast .toast-action {
-  color: var(--link-color);
-  border-color: var(--link-color);
+    color: var(--link-color);
+    border-color: var(--link-color);
 }
 
 #app-toast .toast-dismiss {
-  opacity: 0.7;
+    opacity: 0.7;
 }
 
 /* User detail panel */
 #user-detail-container {
-  display: flex;
-  gap: 20px;
-  padding: 20px;
-  align-items: flex-start;
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    align-items: flex-start;
 }
 
 #user-detail-avatar {
-  width: 96px;
-  height: 96px;
-  object-fit: cover;
-  border: 1px solid var(--block-border);
-  flex-shrink: 0;
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border: 1px solid var(--block-border);
+    flex-shrink: 0;
 }
 
 #user-detail-info {
-  flex: 1;
-  line-height: 1.5;
+    flex: 1;
+    line-height: 1.5;
 }
 
 /* Action button inside detail meta (e.g. connect to channel) */
 .detail-action-button {
-  padding: 6px 12px;
-  background-color: var(--button-bg);
-  border: 1px solid var(--block-border);
-  color: var(--text-color);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
+    padding: 6px 12px;
+    background-color: var(--button-bg);
+    border: 1px solid var(--block-border);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
 }
 
 .detail-action-button:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 /* Searchable list: sticky search on top, flush table-like rows */
 .searchable-list {
-  border: 1px solid var(--header-border);
-  background-color: var(--detail-bg);
+    border: 1px solid var(--header-border);
+    background-color: var(--detail-bg);
 }
 
 .searchable-list-input {
-  width: 100%;
-  padding: 8px 10px;
-  background-color: var(--block-bg);
-  color: var(--text-color);
-  border: none;
-  border-bottom: 1px solid var(--header-border);
-  font-family: inherit;
-  font-size: 13px;
-  outline: none;
-  position: sticky;
-  top: 0;
-  z-index: 1;
+    width: 100%;
+    padding: 8px 10px;
+    background-color: var(--block-bg);
+    color: var(--text-color);
+    border: none;
+    border-bottom: 1px solid var(--header-border);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .list-row {
-  width: 100%;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 7px 10px;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--header-border);
-  color: var(--text-color);
-  font-family: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 10px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--header-border);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
 }
 
 .list-row:last-child {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .list-row:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 .list-row-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .list-row-info {
-  flex-shrink: 0;
-  font-size: 11px;
-  opacity: 0.55;
+    flex-shrink: 0;
+    font-size: 11px;
+    opacity: 0.55;
 }
 
 .searchable-list-hint {
-  padding: 8px 10px;
-  font-size: 12px;
-  opacity: 0.6;
+    padding: 8px 10px;
+    font-size: 12px;
+    opacity: 0.6;
 }
 
 /* Exempt the searchable list from the generic content-div padding so its
    rows stay flush against the list border. */
 .detail-view-content .searchable-list,
 .detail-view-content .searchable-list-rows {
-  padding: 0;
+    padding: 0;
 }
 
 .detail-view-content .searchable-list-hint {
-  padding: 8px 10px;
+    padding: 8px 10px;
 }
 
 /* Login dialog */
 #login-token-input {
-  width: 100%;
-  padding: 8px;
-  margin-top: 5px;
-  background-color: var(--block-bg);
-  color: var(--text-color);
-  border: 1px solid var(--block-border);
-  font-family: inherit;
-  font-size: 14px;
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    background-color: var(--block-bg);
+    color: var(--text-color);
+    border: 1px solid var(--block-border);
+    font-family: inherit;
+    font-size: 14px;
 }
 
 #login-error {
-  color: var(--vis-private-color);
-  font-size: 12px;
-  text-align: left;
-  min-height: 16px;
-  margin: 8px 0 12px;
+    color: var(--vis-private-color);
+    font-size: 12px;
+    text-align: left;
+    min-height: 16px;
+    margin: 8px 0 12px;
 }
 
 .modal-content .modal-note {
-  font-size: 12px;
-  text-align: left;
-  line-height: 1.5;
-  opacity: 0.85;
+    font-size: 12px;
+    text-align: left;
+    line-height: 1.5;
+    opacity: 0.85;
 }
 
 .modal-content .modal-note a {
-  color: var(--link-color);
+    color: var(--link-color);
 }
 
 .mobile-only {
-  display: none;
+    display: none;
 }
 
 #more-button,
 #more-menu {
-  display: none;
+    display: none;
 }
 
 #more-menu {
-  position: absolute;
-  top: 100%;
-  right: 5px;
-  background-color: var(--header-bg);
-  border: 1px solid var(--header-border);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  flex-direction: column;
-  padding: 5px;
-  gap: 5px;
-  z-index: 10002;
+    position: absolute;
+    top: 100%;
+    right: 5px;
+    background-color: var(--header-bg);
+    border: 1px solid var(--header-border);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    flex-direction: column;
+    padding: 5px;
+    gap: 5px;
+    z-index: 10002;
 }
 
 #more-menu button {
-  width: 100%;
-  background-color: var(--button-bg);
-  border: 1px solid var(--block-border);
-  color: var(--text-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+    width: 100%;
+    background-color: var(--button-bg);
+    border: 1px solid var(--block-border);
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family:
+        ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
+        "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro",
+        "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
 }
 
 #more-menu button:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 /* Modal Dialog Styles */
 .modal-dialog {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 10003; /* Higher than detail view */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10003; /* Higher than detail view */
 }
 
 .modal-content {
-  background-color: var(--detail-bg);
-  border: 3px solid var(--detail-border);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-  width: 90%;
-  max-width: 400px;
-  padding: 20px;
-  text-align: center;
+    background-color: var(--detail-bg);
+    border: 3px solid var(--detail-border);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 400px;
+    padding: 20px;
+    text-align: center;
 }
 
 .modal-content h3 {
-  margin-top: 0;
-  color: var(--text-color);
-  font-size: 1.3em;
+    margin-top: 0;
+    color: var(--text-color);
+    font-size: 1.3em;
 }
 
 .modal-content p {
-  margin-bottom: 20px;
-  color: var(--text-color);
-  font-size: 1em;
-  line-height: 1.4;
+    margin-bottom: 20px;
+    color: var(--text-color);
+    font-size: 1em;
+    line-height: 1.4;
 }
 
 .button-group {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
 }
 
 .button-group button {
-  padding: 8px 16px;
-  background-color: var(--button-bg);
-  border: 1px solid var(--block-border);
-  color: var(--text-color);
-  cursor: pointer;
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
-  font-size: 14px;
-  min-width: 100px;
-  transition: background-color 0.2s;
+    padding: 8px 16px;
+    background-color: var(--button-bg);
+    border: 1px solid var(--block-border);
+    color: var(--text-color);
+    cursor: pointer;
+    font-family:
+        ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
+        "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro",
+        "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
+    font-size: 14px;
+    min-width: 100px;
+    transition: background-color 0.2s;
 }
 
 .button-group button:hover {
-  background-color: var(--button-hover);
+    background-color: var(--button-hover);
 }
 
 #load-more-blocks-btn {
-  background-color: var(--channel-block-border);
-  color: white;
+    background-color: var(--channel-block-border);
+    color: white;
 }
 
 #load-more-blocks-btn:hover {
-  background-color: var(--link-color);
+    background-color: var(--link-color);
 }
 
 @media (max-width: 768px) {
-  #header-bar {
-    height: auto;
-    min-height: 40px;
-    padding: 5px;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 5px;
-    position: relative;
-  }
+    #header-bar {
+        height: auto;
+        min-height: 40px;
+        padding: 5px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 5px;
+        position: relative;
+    }
 
-  #header-bar-logo {
-    order: 1;
-    margin: 0 5px;
-  }
+    #header-bar-logo {
+        order: 1;
+        margin: 0 5px;
+    }
 
-  #channel-input-group {
-    order: 2;
-    flex: 1;
-    min-width: 120px;
-    display: flex;
-    margin: 0;
-  }
+    #channel-input-group {
+        order: 2;
+        flex: 1;
+        min-width: 120px;
+        display: flex;
+        margin: 0;
+    }
 
-  #channel-slug-input {
-    height: 32px;
-    font-size: 16px;
-    padding: 0 8px;
-    flex: 1;
-    margin: 0;
-  }
+    #channel-slug-input {
+        height: 32px;
+        font-size: 16px;
+        padding: 0 8px;
+        flex: 1;
+        margin: 0;
+    }
 
-  #goto-button {
-    order: 3;
-    height: 32px;
-    margin: 0;
-  }
+    #goto-button {
+        order: 3;
+        height: 32px;
+        margin: 0;
+    }
 
-  #more-button {
-    order: 4;
-    display: flex;
-  }
+    #more-button {
+        order: 4;
+        display: flex;
+    }
 
-  #tile-button,
-  #theme-toggle {
-    display: none;
-  }
+    #tile-button,
+    #theme-toggle {
+        display: none;
+    }
 
-  #goto-button,
-  #more-button,
-  #more-menu button {
-    height: 32px;
-    min-width: 32px;
-    padding: 0 12px;
-    font-size: 14px;
-    width: auto;
-  }
+    #goto-button,
+    #more-button,
+    #more-menu button {
+        height: 32px;
+        min-width: 32px;
+        padding: 0 12px;
+        font-size: 14px;
+        width: auto;
+    }
 
-  #more-menu.show {
-    display: flex;
-  }
+    #more-menu.show {
+        display: flex;
+    }
 
-  #goto-button:active,
-  #more-button:active,
-  #more-menu button:active {
-    background-color: var(--button-hover);
-  }
+    #goto-button:active,
+    #more-button:active,
+    #more-menu button:active {
+        background-color: var(--button-hover);
+    }
 
-  /* Detail View Mobile Styles */
-  .detail-view {
-    max-height: 75vh;
-  }
+    /* Detail View Mobile Styles */
+    .detail-view {
+        max-height: 75vh;
+    }
 
-  .detail-view-title {
-    font-size: 1.2em;
-    max-width: 60%;
-  }
+    .detail-view-title {
+        font-size: 1.2em;
+        max-width: 60%;
+    }
 
-  .detail-view-content p {
-    font-size: 0.9rem;
-  }
+    .detail-view-content p {
+        font-size: 0.9rem;
+    }
 
-  .detail-view-content h2 {
-    font-size: 1.1rem;
-  }
+    .detail-view-content h2 {
+        font-size: 1.1rem;
+    }
 
-  .detail-view-content div {
-    font-size: 0.9rem;
-  }
+    .detail-view-content div {
+        font-size: 0.9rem;
+    }
 
-  .detail-view-meta {
-    font-size: 11px;
-  }
+    .detail-view-meta {
+        font-size: 11px;
+    }
 
-  #channel-detail-container {
-    font-size: 0.9rem;
-  }
+    #channel-detail-container {
+        font-size: 0.9rem;
+    }
 
-  .modal-content {
-    width: 95%;
-    padding: 15px;
-  }
-  
-  .modal-content h3 {
-    font-size: 1.1em;
-  }
-  
-  .modal-content p {
-    font-size: 0.9em;
-  }
-  
-  .button-group button {
-    padding: 6px 12px;
-    font-size: 12px;
-    min-width: 80px;
-  }
+    .modal-content {
+        width: 95%;
+        padding: 15px;
+    }
+
+    .modal-content h3 {
+        font-size: 1.1em;
+    }
+
+    .modal-content p {
+        font-size: 0.9em;
+    }
+
+    .button-group button {
+        padding: 6px 12px;
+        font-size: 12px;
+        min-width: 80px;
+    }
 }

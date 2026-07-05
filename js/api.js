@@ -439,14 +439,14 @@ const arenaAPI = (() => {
     };
   }
 
-  // Connect a block to a channel. Requires a write-scope token.
-  async function createConnection(blockId, channelId) {
+  // Connect a block or channel to a target channel. Requires a write-scope token.
+  async function createConnection(connectableId, channelId, connectableType = 'Block') {
     const response = await requestJson('/connections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        connectable_type: 'Block',
-        connectable_id: blockId,
+        connectable_type: connectableType,
+        connectable_id: connectableId,
         channels: [{ id: channelId }]
       })
     });
