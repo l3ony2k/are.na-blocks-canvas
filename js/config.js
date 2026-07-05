@@ -1,14 +1,15 @@
 // Global configuration
 const CONFIG = {
   defaultChannel: 'ephemeral-visions',
-  accessToken: '',
+  accessToken: localStorage.getItem('arenaAccessToken') || '',
   blocksPerLoad: isMobileDevice() ? 10 : 20,     // Reduce batch size on mobile
   loadInterval: isMobileDevice() ? 300 : 100,    // More time between batches on mobile
   doubleClickDelay: 300,
   dbName: 'ArenaBlocksDB',
   dbVersion: 3,
-  cacheSchemaVersion: 'arena-v3-position-asc',
+  cacheSchemaVersion: 'arena-v4-comments',
   cacheMaxAge: 24 * 60 * 60 * 1000, // 1 day
+  historyMaxAge: 30 * 24 * 60 * 60 * 1000, // Keep surf history around for a month
   memoryCheckInterval: 5000,         // Check memory usage every 5 seconds on mobile
   maxBlocks: isMobileDevice() ? 150 : 1000, // Maximum blocks to render at once on mobile
   userOverrideBlockLimit: false,     // Whether the user has chosen to override the block limit
@@ -24,7 +25,14 @@ const CONFIG = {
   flowTextLineHeight: 20,
   flowChannelFontSize: 24,
   flowChannelLineHeight: 29,
-  version: '3.6.0' // Layout mode persistence + flow canvas polish + prioritized image loading
+  flowZoomMin: 0.5,
+  flowZoomMax: 2,
+  connectionsPerPage: 24,
+  commentsPerPage: 24,
+  myChannelsPerPage: 100,
+  myChannelsCacheAge: 5 * 60 * 1000,
+  userViewMaxPages: 10,
+  version: '4.2.1' // Channel blocks colored by visibility everywhere, are.na glyph on flow channel blocks
 };
 
 // Helper function to detect mobile devices
@@ -46,5 +54,10 @@ const STATE = {
   lastTouchEnd: 0,
   layoutMode: 'mix',
   flow: null,
-  flowImageMeasurements: {}
+  flowImageMeasurements: {},
+  currentUser: null,
+  myChannels: null,
+  followingChannels: null,
+  activeDetailToken: null,
+  detailStack: []
 };

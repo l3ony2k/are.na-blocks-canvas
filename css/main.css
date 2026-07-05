@@ -85,13 +85,8 @@ blockquote {
   /* this need to be 30px, this one is necessary */
 }
 
-body.flow-mode {
-  cursor: grab;
-}
-
-body.flow-dragging {
-  cursor: grabbing;
-}
+/* Flow mode uses the default cursor like every other mode; blocks are
+   plain click targets on the canvas. */
 
 #flow-surface {
   position: fixed;
@@ -189,6 +184,41 @@ body.flow-dragging {
   -ms-hyphens: auto;
 }
 
+/* User-view channel blocks: colored by visibility instead of the generic
+   connected-channel blue. Closed channels use the plain text color. */
+.block.channel-block.channel-vis-public {
+  border-color: var(--vis-public-color);
+}
+.block.channel-block.channel-vis-public .channel-header,
+.block.channel-block.channel-vis-public h2 {
+  color: var(--vis-public-color);
+}
+.block.channel-block.channel-vis-public .channel-header svg path {
+  fill: var(--vis-public-color);
+}
+
+.block.channel-block.channel-vis-private {
+  border-color: var(--vis-private-color);
+}
+.block.channel-block.channel-vis-private .channel-header,
+.block.channel-block.channel-vis-private h2 {
+  color: var(--vis-private-color);
+}
+.block.channel-block.channel-vis-private .channel-header svg path {
+  fill: var(--vis-private-color);
+}
+
+.block.channel-block.channel-vis-closed {
+  border-color: var(--block-border);
+}
+.block.channel-block.channel-vis-closed .channel-header,
+.block.channel-block.channel-vis-closed h2 {
+  color: var(--text-color);
+}
+.block.channel-block.channel-vis-closed .channel-header svg path {
+  fill: var(--text-color);
+}
+
 /* Image placeholder styling */
 .block.image-block {
   min-width: 1px;
@@ -270,33 +300,10 @@ body.flow-dragging {
   background-color: var(--block-bg);
 }
 
-#channel-stats {
-  display: flex;
-  gap: 20px;
-  font-size: 0.9em;
-}
-
-#channel-dates {
-  font-size: 0.9em;
-}
-
-#channel-status {
-  font-size: 0.9em;
-}
-
+/* Go to Channel shares .detail-action-button styling; this only keeps it
+   from stretching inside the flex column. */
 #channel-goto-button {
-  font-size: 1rem;
-  padding: 10px 20px;
-  cursor: pointer;
-  background-color: var(--button-bg);
-  border: 1px solid var(--block-border);
-  color: var(--text-color);
-  font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Mono", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Consolas", "Courier New", monospace;
   align-self: flex-start;
-}
-
-#channel-goto-button:hover {
-  background-color: var(--button-hover);
 }
 
 #channel-description {

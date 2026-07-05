@@ -41,17 +41,28 @@ class Router {
 
     try {
       document.getElementById('channel-slug-input').value = slug;
-      document.getElementById('header-bar-logo-link').href = `https://are.na/channel/${slug}`;
-      
+
       await updateChannel(slug, forceRefresh);
-      
-      const channelInfo = await fetchChannelInfo(slug);
-      if (channelInfo) {
-        await arenaDB.addToHistory(slug, channelInfo.title);
+
+      // Special views (@user, !feed) have no channel behind them; the view
+      // loader fills STATE.currentChannelInfo itself.
+      if (slug.startsWith('@') || slug.startsWith('!')) {
+        if (slug.startsWith('@') && STATE.currentChannelInfo) {
+          await arenaDB.addToHistory(slug, STATE.currentChannelInfo.title);
+        }
         setTimeout(() => {
           document.getElementById('loading-container').style.display = 'none';
           document.getElementById('log-output').style.display = 'none';
         }, 500);
+      } else {
+        const channelInfo = await fetchChannelInfo(slug);
+        if (channelInfo) {
+          await arenaDB.addToHistory(slug, channelInfo.title);
+          setTimeout(() => {
+            document.getElementById('loading-container').style.display = 'none';
+            document.getElementById('log-output').style.display = 'none';
+          }, 500);
+        }
       }
     } catch (error) {
       console.error('Navigation error:', error);

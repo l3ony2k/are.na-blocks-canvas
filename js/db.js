@@ -117,17 +117,31 @@ class ArenaDB {
       const index = store.index('timestamp');
       const request = index.openCursor(null, 'prev');
       const history = [];
-      
+      const seenSlugs = new Set();
+
       request.onsuccess = (event) => {
         const cursor = event.target.result;
         if (cursor && history.length < limit) {
-          history.push(cursor.value);
+          if (!seenSlugs.has(cursor.value.slug)) {
+            seenSlugs.add(cursor.value.slug);
+            history.push(cursor.value);
+          }
           cursor.continue();
         } else {
           resolve(history);
         }
       };
-      
+
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async clearChannels() {
+    await this.ready;
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('channels', 'readwrite');
+      const request = tx.objectStore('channels').clear();
+      request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
   }
@@ -138,10 +152,12 @@ class ArenaDB {
     const channelStore = tx.objectStore('channels');
     const historyStore = tx.objectStore('history');
     const now = Date.now();
+    // Surf history powers "recently surfed", so it outlives block caches.
+    const historyMaxAge = CONFIG.historyMaxAge || maxAge;
 
     return new Promise((resolve, reject) => {
       const request = channelStore.index('timestamp').openCursor();
-      
+
       request.onsuccess = (event) => {
         const cursor = event.target.result;
         if (cursor) {
@@ -151,13 +167,13 @@ class ArenaDB {
           cursor.continue();
         }
       };
-      
+
       const historyRequest = historyStore.index('timestamp').openCursor();
-      
+
       historyRequest.onsuccess = (event) => {
         const cursor = event.target.result;
         if (cursor) {
-          if (now - cursor.value.timestamp > maxAge) {
+          if (now - cursor.value.timestamp > historyMaxAge) {
             cursor.delete();
           }
           cursor.continue();
@@ -165,7 +181,7 @@ class ArenaDB {
           resolve();
         }
       };
-      
+
       tx.onerror = () => reject(tx.error);
     });
   }

@@ -2,7 +2,7 @@
 
 A visual tool for exploring Are.na blocks in a canvas interface. This project allows users to interact with Are.na content in a more spatial and intuitive way.
 
-The app uses public browser-side requests against the Are.na API v3 by default.
+The app uses public browser-side requests against the Are.na API v3 by default. Logging in with an Are.na personal access token unlocks your own (including private) channels.
 
 ## Features
 
@@ -10,6 +10,12 @@ The app uses public browser-side requests against the Are.na API v3 by default.
 - Drag and drop functionality
 - Visual organization of blocks
 - Real-time updates with Are.na API v3
+- Log in with a personal access token to browse your own and followed channels from the search box (color-coded by visibility)
+- Block connections and comments: see every channel a block appears in and surf onward opened channels stack like windows so you never lose your place
+- Connect blocks to your own channels (write-scope token) with undo
+- Browse any user's channels as a canvas (`@username`), your feed, and random surf
+- Flow mode: endless canvas with pinch / ctrl+scroll zoom
+- Recently surfed history in the app menu (top-left logo)
 - Responsive design for different screen sizes
 
 ## Technology Stack
@@ -58,6 +64,7 @@ are.na-blocks-canvas/
 ├── js/
 │   ├── main.js         # Application entry point
 │   ├── blocks.js       # Block management
+│   ├── account.js      # Login, app menu, my-channels dropdown
 │   ├── config.js       # Configuration
 │   ├── db.js           # Local storage handling
 │   ├── router.js       # Routing logic

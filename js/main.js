@@ -1,44 +1,47 @@
 function ensureBlockLayout(blocks) {
   const viewport = {
     width: window.innerWidth,
-    height: window.innerHeight
+    height: window.innerHeight,
   };
 
   const blockDimensions = {
     width: 200,
-    height: 300
+    height: 300,
   };
 
   const bounds = {
     minX: 0,
     minY: 0,
     maxX: viewport.width - blockDimensions.width,
-    maxY: viewport.height - blockDimensions.height
+    maxY: viewport.height - blockDimensions.height,
   };
 
-  blocks.forEach(block => {
+  blocks.forEach((block) => {
     if (!STATE.cachedBlockPositions[block.id]) {
       STATE.cachedBlockPositions[block.id] = {
         x: bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
         y: bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
-        rotation: Math.random() * 20 - 10
+        rotation: Math.random() * 20 - 10,
       };
     }
 
-    if (!STATE.cachedBlockOrder.includes(String(block.id)) && !STATE.cachedBlockOrder.includes(block.id)) {
+    if (
+      !STATE.cachedBlockOrder.includes(String(block.id)) &&
+      !STATE.cachedBlockOrder.includes(block.id)
+    ) {
       STATE.cachedBlockOrder.push(String(block.id));
     }
   });
 
   if (STATE.cachedBlockOrder.length === 0) {
-    STATE.cachedBlockOrder = blocks.map(block => String(block.id));
+    STATE.cachedBlockOrder = blocks.map((block) => String(block.id));
   } else {
-    STATE.cachedBlockOrder = STATE.cachedBlockOrder.map(id => String(id));
+    STATE.cachedBlockOrder = STATE.cachedBlockOrder.map((id) => String(id));
   }
 }
 
 function clearRenderedBlocks() {
-  document.querySelectorAll('.block').forEach(block => {
+  document.querySelectorAll(".block").forEach((block) => {
     if (block._imageObserver) {
       block._imageObserver.disconnect();
     }
@@ -47,9 +50,11 @@ function clearRenderedBlocks() {
 }
 
 function renderBlockBatch(blockIds) {
-  blockIds.forEach(blockId => {
+  blockIds.forEach((blockId) => {
     try {
-      const block = STATE.allFetchedBlocks.find(item => String(item.id) === String(blockId));
+      const block = STATE.allFetchedBlocks.find(
+        (item) => String(item.id) === String(blockId),
+      );
       if (!block) {
         return;
       }
@@ -63,22 +68,24 @@ function renderBlockBatch(blockIds) {
 
       STATE.visibleBlockIds.add(String(block.id));
     } catch (error) {
-      console.error('Error rendering block:', error);
+      console.error("Error rendering block:", error);
     }
   });
 }
 
 async function fetchChannelBlocks(slug) {
-  outputLog(`[fetchChannelBlocks] Start fetching blocks for channel "${slug}"...`);
+  outputLog(
+    `[fetchChannelBlocks] Start fetching blocks for channel "${slug}"...`,
+  );
 
-  const loadingContainer = document.getElementById('loading-container');
-  const logOutput = document.getElementById('log-output');
-  const loadingBar = document.getElementById('loading-bar');
+  const loadingContainer = document.getElementById("loading-container");
+  const logOutput = document.getElementById("log-output");
+  const loadingBar = document.getElementById("loading-bar");
 
-  loadingContainer.style.display = 'block';
-  logOutput.style.display = 'block';
-  logOutput.innerHTML = '';
-  loadingBar.style.width = '0%';
+  loadingContainer.style.display = "block";
+  logOutput.style.display = "block";
+  logOutput.innerHTML = "";
+  loadingBar.style.width = "0%";
 
   try {
     const channelInfo = await fetchChannelInfo(slug);
@@ -89,37 +96,156 @@ async function fetchChannelBlocks(slug) {
     STATE.currentChannelInfo = channelInfo;
 
     const totalBlocks = channelInfo.counts?.contents || 0;
-    outputLog(`[fetchChannelBlocks] Channel "${slug}" has ${totalBlocks} blocks in total.`);
+    outputLog(
+      `[fetchChannelBlocks] Channel "${slug}" has ${totalBlocks} blocks in total.`,
+    );
 
     const result = await arenaAPI.getAllChannelContents(slug, {
       per: 100,
-      sort: 'position_asc',
-      onPageLoaded: info => {
-        outputLog(`[fetchChannelBlocks] Page ${info.page} data received, ${info.pageCount} blocks.`);
+      sort: "position_asc",
+      onPageLoaded: (info) => {
+        outputLog(
+          `[fetchChannelBlocks] Page ${info.page} data received, ${info.pageCount} blocks.`,
+        );
         if (info.total > 0) {
           loadingBar.style.width = `${(info.loaded / info.total) * 100}%`;
         }
-      }
+      },
     });
 
     result.pageErrors.forEach((error, index) => {
-      outputLog(`[fetchChannelBlocks] Error fetching page ${index + 2}: ${error.message}`);
+      outputLog(
+        `[fetchChannelBlocks] Error fetching page ${index + 2}: ${error.message}`,
+      );
     });
 
     STATE.cachedBlockPositions = {};
     STATE.cachedBlockOrder = [];
     ensureBlockLayout(result.data);
 
-    outputLog(`[fetchChannelBlocks] Blocks for channel "${slug}" fetched, ${result.data.length} blocks in total.`);
+    outputLog(
+      `[fetchChannelBlocks] Blocks for channel "${slug}" fetched, ${result.data.length} blocks in total.`,
+    );
     return result.data;
   } finally {
-    loadingContainer.style.display = 'none';
-    logOutput.style.display = 'none';
+    loadingContainer.style.display = "none";
+    logOutput.style.display = "none";
   }
 }
 
+// Browse a user: their channels rendered as canvas blocks, oldest first so
+// the most recently updated channel lands on top of the pile (mix/tile) and
+// at the center of flow.
+async function fetchUserChannelBlocks(username) {
+  outputLog(`[UserView] Fetching channels of @${username}...`);
+
+  const loadingContainer = document.getElementById("loading-container");
+  const logOutput = document.getElementById("log-output");
+  const loadingBar = document.getElementById("loading-bar");
+
+  loadingContainer.style.display = "block";
+  logOutput.style.display = "block";
+  logOutput.innerHTML = "";
+  loadingBar.style.width = "0%";
+
+  try {
+    const profile = await arenaAPI.getUserProfile(username);
+    STATE.currentChannelInfo = {
+      title: profile.name ? `${profile.name} (@${username})` : `@${username}`,
+    };
+
+    const channels = [];
+    let page = 1;
+    let capped = false;
+
+    while (page <= CONFIG.userViewMaxPages) {
+      const result = await arenaAPI.getUserChannelsPage(username, page, 100);
+      channels.push(...result.data.filter((item) => item.kind === "channel"));
+      outputLog(
+        `[UserView] Page ${page}: ${result.data.length} channels (${channels.length} total)`,
+      );
+
+      const total = result.meta?.total_count || channels.length;
+      if (total > 0) {
+        loadingBar.style.width = `${Math.min(100, (channels.length / total) * 100)}%`;
+      }
+
+      if (!result.meta?.has_more_pages) {
+        break;
+      }
+      if (page === CONFIG.userViewMaxPages) {
+        capped = true;
+      }
+      page += 1;
+    }
+
+    if (capped) {
+      outputLog(`[UserView] Showing the first ${channels.length} channels`);
+    }
+
+    channels.sort((left, right) =>
+      String(left.updatedAt || "").localeCompare(String(right.updatedAt || "")),
+    );
+    channels.forEach((channel) => {
+      channel.displayVariant = "user-channel";
+    });
+
+    outputLog(
+      `[UserView] @${username} has ${channels.length} visible channels`,
+    );
+    return channels;
+  } finally {
+    loadingContainer.style.display = "none";
+    logOutput.style.display = "none";
+  }
+}
+
+// The logged-in user's feed as canvas blocks, oldest activity first so the
+// newest lands on top.
+async function fetchFeedBlocks() {
+  if (!CONFIG.accessToken) {
+    throw new Error("Log in to view your feed");
+  }
+
+  const loadingContainer = document.getElementById("loading-container");
+  const logOutput = document.getElementById("log-output");
+
+  loadingContainer.style.display = "block";
+  logOutput.style.display = "block";
+  logOutput.innerHTML = "";
+
+  try {
+    outputLog("[Feed] Fetching your feed...");
+    const items = await arenaAPI.getFeedItems(100);
+    STATE.currentChannelInfo = { title: "Your Feed" };
+    outputLog(`[Feed] ${items.length} fresh items`);
+
+    if (items.length === 0) {
+      throw new Error(
+        "Your feed is empty, follow some people and channels on are.na",
+      );
+    }
+
+    return items.reverse();
+  } finally {
+    loadingContainer.style.display = "none";
+    logOutput.style.display = "none";
+  }
+}
+
+// Special hash views: @username browses a user, !feed shows the login feed.
+function fetchBlocksForSlug(slug) {
+  if (slug.startsWith("@")) {
+    return fetchUserChannelBlocks(slug.slice(1));
+  }
+  if (slug === "!feed") {
+    return fetchFeedBlocks();
+  }
+  return fetchChannelBlocks(slug);
+}
+
 async function updateChannel(newSlug, forceRefresh = false) {
-  closeDetailView();
+  closeAllDetailViews();
   resetTileButton();
   outputLog(`[Channel] Switching to: ${newSlug}`);
 
@@ -140,7 +266,10 @@ async function updateChannel(newSlug, forceRefresh = false) {
   STATE.cachedBlockOrder = [];
   STATE.visibleBlockIds = new Set();
 
-  if (!forceRefresh) {
+  // The feed is personal and changes constantly, never serve it from cache.
+  const cacheable = !newSlug.startsWith("!");
+
+  if (!forceRefresh && cacheable) {
     try {
       const cachedData = await arenaDB.getChannel(newSlug);
       if (
@@ -153,40 +282,50 @@ async function updateChannel(newSlug, forceRefresh = false) {
 
         STATE.allFetchedBlocks = cachedData.data;
         STATE.cachedBlockPositions = cachedData.positions || {};
-        STATE.cachedBlockOrder = Array.isArray(cachedData.order) ? cachedData.order.map(id => String(id)) : [];
+        STATE.cachedBlockOrder = Array.isArray(cachedData.order)
+          ? cachedData.order.map((id) => String(id))
+          : [];
         ensureBlockLayout(STATE.allFetchedBlocks);
 
         const isMobile = isMobileDevice();
         if (isMobile) {
           startMemoryMonitoring();
-          const initialBlocks = Math.min(CONFIG.blocksPerLoad, STATE.cachedBlockOrder.length);
+          const initialBlocks = Math.min(
+            CONFIG.blocksPerLoad,
+            STATE.cachedBlockOrder.length,
+          );
           renderBlockBatch(STATE.cachedBlockOrder.slice(0, initialBlocks));
           STATE.currentlyDisplayedBlocks = initialBlocks;
-          STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
+          STATE.loadIntervalId = setInterval(
+            loadMoreBlocks,
+            CONFIG.loadInterval,
+          );
         } else {
           const maxBlocks = CONFIG.maxBlocks || STATE.cachedBlockOrder.length;
           const blocksToRender = STATE.cachedBlockOrder.slice(0, maxBlocks);
           renderBlockBatch(blocksToRender);
 
-          if (document.querySelectorAll('.block').length === 0) {
-            throw new Error('No blocks rendered from cache');
+          if (document.querySelectorAll(".block").length === 0) {
+            throw new Error("No blocks rendered from cache");
           }
 
           STATE.currentlyDisplayedBlocks = blocksToRender.length;
         }
 
-        outputLog(`[Cache] Successfully loaded ${STATE.currentlyDisplayedBlocks} blocks`);
+        outputLog(
+          `[Cache] Successfully loaded ${STATE.currentlyDisplayedBlocks} blocks`,
+        );
         applySavedLayoutMode();
         return;
       }
     } catch (error) {
-      console.error('Error loading from cache:', error);
+      console.error("Error loading from cache:", error);
       outputLog(`[Cache] Load failed: ${error.message}, falling back to API`);
     }
   }
 
   try {
-    const blocks = await fetchChannelBlocks(newSlug);
+    const blocks = await fetchBlocksForSlug(newSlug);
     if (!blocks || blocks.length === 0) {
       throw new Error(`No blocks found in channel: ${newSlug}`);
     }
@@ -194,11 +333,15 @@ async function updateChannel(newSlug, forceRefresh = false) {
     STATE.allFetchedBlocks = blocks;
     ensureBlockLayout(blocks);
 
-    try {
-      await arenaDB.saveChannel(newSlug, blocks);
-    } catch (error) {
-      console.error('Failed to save to cache:', error);
-      outputLog('[Warning] Failed to save to cache, but blocks loaded successfully');
+    if (cacheable) {
+      try {
+        await arenaDB.saveChannel(newSlug, blocks);
+      } catch (error) {
+        console.error("Failed to save to cache:", error);
+        outputLog(
+          "[Warning] Failed to save to cache, but blocks loaded successfully",
+        );
+      }
     }
 
     if (isMobileDevice()) {
@@ -210,7 +353,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
     applySavedLayoutMode();
     outputLog(`[API] Successfully loaded ${blocks.length} blocks`);
   } catch (error) {
-    console.error('Error fetching blocks:', error);
+    console.error("Error fetching blocks:", error);
     outputLog(`[Error] ${error.message}`);
   }
 }
@@ -224,13 +367,16 @@ function startMemoryMonitoring() {
     try {
       if (
         window.performance.memory &&
-        window.performance.memory.usedJSHeapSize > window.performance.memory.jsHeapSizeLimit * 0.8
+        window.performance.memory.usedJSHeapSize >
+          window.performance.memory.jsHeapSizeLimit * 0.8
       ) {
-        outputLog('[Memory Warning] High memory usage detected, cleaning up offscreen blocks');
+        outputLog(
+          "[Memory Warning] High memory usage detected, cleaning up offscreen blocks",
+        );
         cleanupOffscreenBlocks();
       }
     } catch (error) {
-      console.error('Error monitoring memory:', error);
+      console.error("Error monitoring memory:", error);
     }
   }, CONFIG.memoryCheckInterval);
 }
@@ -244,7 +390,7 @@ function cleanupOffscreenBlocks() {
     left: window.scrollX,
     top: window.scrollY,
     right: window.scrollX + window.innerWidth,
-    bottom: window.scrollY + window.innerHeight
+    bottom: window.scrollY + window.innerHeight,
   };
 
   const margin = 200;
@@ -252,17 +398,17 @@ function cleanupOffscreenBlocks() {
     left: viewport.left - margin,
     top: viewport.top - margin,
     right: viewport.right + margin,
-    bottom: viewport.bottom + margin
+    bottom: viewport.bottom + margin,
   };
 
-  const blocks = document.querySelectorAll('.block');
+  const blocks = document.querySelectorAll(".block");
   const blocksToRemove = [];
 
-  blocks.forEach(block => {
+  blocks.forEach((block) => {
     const rect = block.getBoundingClientRect();
     const blockCenter = {
       x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
+      y: rect.top + rect.height / 2,
     };
 
     if (
@@ -295,37 +441,38 @@ function cleanupOffscreenBlocks() {
 }
 
 function createBlockLimitWarningDialog() {
-  if (document.getElementById('block-limit-warning')) {
-    return document.getElementById('block-limit-warning');
+  if (document.getElementById("block-limit-warning")) {
+    return document.getElementById("block-limit-warning");
   }
 
-  const dialog = document.createElement('div');
-  dialog.id = 'block-limit-warning';
-  dialog.className = 'modal-dialog';
+  const dialog = document.createElement("div");
+  dialog.id = "block-limit-warning";
+  dialog.className = "modal-dialog";
 
-  const content = document.createElement('div');
-  content.className = 'modal-content';
+  const content = document.createElement("div");
+  content.className = "modal-content";
 
-  const title = document.createElement('h3');
-  title.textContent = 'Block Limit Reached';
+  const title = document.createElement("h3");
+  title.textContent = "Block Limit Reached";
 
-  const description = document.createElement('p');
-  description.innerHTML = 'This channel has more than <span id="block-limit-count"></span> blocks. Loading more may affect performance on your device. Flow mode can browse the whole channel smoothly.';
+  const description = document.createElement("p");
+  description.innerHTML =
+    'This channel has more than <span id="block-limit-count"></span> blocks. Loading more may affect performance on your device. Flow mode can browse the whole channel smoothly.';
 
-  const buttonGroup = document.createElement('div');
-  buttonGroup.className = 'button-group';
+  const buttonGroup = document.createElement("div");
+  buttonGroup.className = "button-group";
 
-  const loadMoreButton = document.createElement('button');
-  loadMoreButton.id = 'load-more-blocks-btn';
-  loadMoreButton.textContent = 'Load More';
+  const loadMoreButton = document.createElement("button");
+  loadMoreButton.id = "load-more-blocks-btn";
+  loadMoreButton.textContent = "Load More";
 
-  const flowModeButton = document.createElement('button');
-  flowModeButton.id = 'use-flow-mode-btn';
-  flowModeButton.textContent = 'Use Flow';
+  const flowModeButton = document.createElement("button");
+  flowModeButton.id = "use-flow-mode-btn";
+  flowModeButton.textContent = "Use Flow";
 
-  const cancelButton = document.createElement('button');
-  cancelButton.id = 'cancel-load-more-btn';
-  cancelButton.textContent = 'Cancel';
+  const cancelButton = document.createElement("button");
+  cancelButton.id = "cancel-load-more-btn";
+  cancelButton.textContent = "Cancel";
 
   buttonGroup.appendChild(loadMoreButton);
   buttonGroup.appendChild(flowModeButton);
@@ -342,26 +489,26 @@ function createBlockLimitWarningDialog() {
 }
 
 function initBlockLimitWarningListeners() {
-  const warningDialog = document.getElementById('block-limit-warning');
-  const loadMoreButton = document.getElementById('load-more-blocks-btn');
-  const cancelButton = document.getElementById('cancel-load-more-btn');
+  const warningDialog = document.getElementById("block-limit-warning");
+  const loadMoreButton = document.getElementById("load-more-blocks-btn");
+  const cancelButton = document.getElementById("cancel-load-more-btn");
 
   if (!warningDialog || !loadMoreButton || !cancelButton) {
     return;
   }
 
-  warningDialog.addEventListener('click', event => {
+  warningDialog.addEventListener("click", (event) => {
     event.stopPropagation();
   });
 
-  const modalContent = warningDialog.querySelector('.modal-content');
+  const modalContent = warningDialog.querySelector(".modal-content");
   if (modalContent) {
-    modalContent.addEventListener('click', event => {
+    modalContent.addEventListener("click", (event) => {
       event.stopPropagation();
     });
   }
 
-  warningDialog.addEventListener('mousedown', event => {
+  warningDialog.addEventListener("mousedown", (event) => {
     if (event.target === warningDialog) {
       event.preventDefault();
       event.stopPropagation();
@@ -370,7 +517,7 @@ function initBlockLimitWarningListeners() {
 
   loadMoreButton.onclick = () => {
     CONFIG.userOverrideBlockLimit = true;
-    warningDialog.style.display = 'none';
+    warningDialog.style.display = "none";
 
     if (STATE.loadIntervalId === null) {
       STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
@@ -379,22 +526,22 @@ function initBlockLimitWarningListeners() {
     loadMoreBlocks();
   };
 
-  const flowModeButton = document.getElementById('use-flow-mode-btn');
+  const flowModeButton = document.getElementById("use-flow-mode-btn");
   if (flowModeButton) {
     flowModeButton.onclick = () => {
-      warningDialog.style.display = 'none';
-      setLayoutMode('flow');
+      warningDialog.style.display = "none";
+      setLayoutMode("flow");
     };
   }
 
   cancelButton.onclick = () => {
-    warningDialog.style.display = 'none';
+    warningDialog.style.display = "none";
     CONFIG.userOverrideBlockLimit = false;
   };
 }
 
 function showBlockLimitWarning() {
-  let warningDialog = document.getElementById('block-limit-warning');
+  let warningDialog = document.getElementById("block-limit-warning");
 
   if (!warningDialog) {
     warningDialog = createBlockLimitWarningDialog();
@@ -403,13 +550,13 @@ function showBlockLimitWarning() {
     }
   }
 
-  const blockLimitCount = document.getElementById('block-limit-count');
+  const blockLimitCount = document.getElementById("block-limit-count");
   if (blockLimitCount) {
     blockLimitCount.textContent = CONFIG.maxBlocks;
   }
 
-  warningDialog.classList.add('show');
-  warningDialog.style.display = 'flex';
+  warningDialog.classList.add("show");
+  warningDialog.style.display = "flex";
 }
 
 function loadMoreBlocks() {
@@ -419,7 +566,7 @@ function loadMoreBlocks() {
 
   // Flow mode renders from allFetchedBlocks via the virtualized canvas;
   // DOM batch loading must not run underneath it.
-  if (STATE.layoutMode === 'flow') {
+  if (STATE.layoutMode === "flow") {
     clearInterval(STATE.loadIntervalId);
     STATE.loadIntervalId = null;
     return;
@@ -428,11 +575,15 @@ function loadMoreBlocks() {
   STATE.isLoading = true;
 
   const isMobile = isMobileDevice();
-  const currentBlockCount = document.querySelectorAll('.block').length;
-  const maxAllowedBlocks = CONFIG.userOverrideBlockLimit ? CONFIG.maxBlocksAfterOverride : CONFIG.maxBlocks;
+  const currentBlockCount = document.querySelectorAll(".block").length;
+  const maxAllowedBlocks = CONFIG.userOverrideBlockLimit
+    ? CONFIG.maxBlocksAfterOverride
+    : CONFIG.maxBlocks;
 
   if (!CONFIG.userOverrideBlockLimit && currentBlockCount >= CONFIG.maxBlocks) {
-    outputLog(`[loadMoreBlocks] Initial block limit reached (${CONFIG.maxBlocks}), showing warning`);
+    outputLog(
+      `[loadMoreBlocks] Initial block limit reached (${CONFIG.maxBlocks}), showing warning`,
+    );
     showBlockLimitWarning();
     clearInterval(STATE.loadIntervalId);
     STATE.loadIntervalId = null;
@@ -441,7 +592,9 @@ function loadMoreBlocks() {
   }
 
   if (currentBlockCount >= maxAllowedBlocks) {
-    outputLog(`[loadMoreBlocks] Block limit reached (${maxAllowedBlocks}), stopping auto-load`);
+    outputLog(
+      `[loadMoreBlocks] Block limit reached (${maxAllowedBlocks}), stopping auto-load`,
+    );
     clearInterval(STATE.loadIntervalId);
     STATE.loadIntervalId = null;
     STATE.isLoading = false;
@@ -450,11 +603,11 @@ function loadMoreBlocks() {
 
   const nextBatch = STATE.allFetchedBlocks.slice(
     STATE.currentlyDisplayedBlocks,
-    STATE.currentlyDisplayedBlocks + CONFIG.blocksPerLoad
+    STATE.currentlyDisplayedBlocks + CONFIG.blocksPerLoad,
   );
 
   if (nextBatch.length === 0) {
-    outputLog('[loadMoreBlocks] No more blocks to load.');
+    outputLog("[loadMoreBlocks] No more blocks to load.");
     STATE.isLoading = false;
     clearInterval(STATE.loadIntervalId);
     STATE.loadIntervalId = null;
@@ -468,12 +621,16 @@ function loadMoreBlocks() {
 
     blocksToRender = STATE.cachedBlockOrder
       .slice(startIndex, endIndex)
-      .filter(blockId => !STATE.visibleBlockIds.has(String(blockId)))
-      .map(blockId => STATE.allFetchedBlocks.find(block => String(block.id) === String(blockId)))
+      .filter((blockId) => !STATE.visibleBlockIds.has(String(blockId)))
+      .map((blockId) =>
+        STATE.allFetchedBlocks.find(
+          (block) => String(block.id) === String(blockId),
+        ),
+      )
       .filter(Boolean);
   }
 
-  blocksToRender.forEach(block => {
+  blocksToRender.forEach((block) => {
     const blockElement = renderBlock(block);
     const position = STATE.cachedBlockPositions[block.id];
 
@@ -487,7 +644,7 @@ function loadMoreBlocks() {
   STATE.currentlyDisplayedBlocks += blocksToRender.length;
 
   // Keep the grid coherent while batches stream in.
-  if (STATE.layoutMode === 'tile' && blocksToRender.length > 0) {
+  if (STATE.layoutMode === "tile" && blocksToRender.length > 0) {
     tileBlocks();
   }
 
@@ -496,7 +653,9 @@ function loadMoreBlocks() {
   }
 
   if (STATE.currentlyDisplayedBlocks >= STATE.allFetchedBlocks.length) {
-    outputLog(`[loadMoreBlocks] All blocks loaded: ${STATE.currentlyDisplayedBlocks}`);
+    outputLog(
+      `[loadMoreBlocks] All blocks loaded: ${STATE.currentlyDisplayedBlocks}`,
+    );
     clearInterval(STATE.loadIntervalId);
     STATE.loadIntervalId = null;
   }
@@ -509,15 +668,15 @@ function getBlockDisplayTitle(block) {
     return block.title;
   }
 
-  if (block.kind === 'link') {
-    return 'Link';
+  if (block.kind === "link") {
+    return "Link";
   }
 
-  if (block.kind === 'channel') {
-    return 'Channel';
+  if (block.kind === "channel") {
+    return "Channel";
   }
 
-  return 'Block Details';
+  return "Block Details";
 }
 
 function appendDetailImage(container, block) {
@@ -526,8 +685,11 @@ function appendDetailImage(container, block) {
   }
 
   const isMobile = isMobileDevice();
-  const img = document.createElement('img');
-  const initialVersion = block.imageVersions.display || block.imageVersions.large || block.imageVersions.original;
+  const img = document.createElement("img");
+  const initialVersion =
+    block.imageVersions.display ||
+    block.imageVersions.large ||
+    block.imageVersions.original;
   const intrinsicVersion = block.imageVersions.original || initialVersion;
 
   if (!initialVersion?.url) {
@@ -546,14 +708,18 @@ function appendDetailImage(container, block) {
   }
 
   if (isMobile) {
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
+    img.style.maxWidth = "100%";
+    img.style.height = "auto";
   }
 
-  img.alt = block.title || block.imageVersions.altText || 'Image';
+  img.alt = block.title || block.imageVersions.altText || "Image";
   container.appendChild(img);
 
-  if (!isMobile && block.imageVersions.original?.url && block.imageVersions.original.url !== img.src) {
+  if (
+    !isMobile &&
+    block.imageVersions.original?.url &&
+    block.imageVersions.original.url !== img.src
+  ) {
     const originalImg = new Image();
     originalImg.onload = () => {
       if (img.isConnected) {
@@ -561,94 +727,135 @@ function appendDetailImage(container, block) {
       }
     };
     originalImg.onerror = () => {
-      console.warn('Failed to load original image, keeping display version');
+      console.warn("Failed to load original image, keeping display version");
     };
     originalImg.src = block.imageVersions.original.url;
   }
 }
 
 function renderNonChannelDetail(block) {
-  const detailContent = document.getElementById('detail-view-content');
-  const arenaLinkElement = document.getElementById('detail-view-arena-link');
+  const detailContent = document.getElementById("detail-view-content");
+  const arenaLinkElement = document.getElementById("detail-view-arena-link");
 
+  const requestToken = beginDetailRequest();
   resetDetailPanels();
-  arenaLinkElement.href = block.arenaUrl || `https://www.are.na/block/${block.id}`;
+  arenaLinkElement.href =
+    block.arenaUrl || `https://www.are.na/block/${block.id}`;
 
   if (block.imageVersions) {
     appendDetailImage(detailContent, block);
   }
 
-  if (block.kind === 'text' && block.textHtml) {
-    const text = document.createElement('div');
+  if (block.kind === "text" && block.textHtml) {
+    const text = document.createElement("div");
     text.innerHTML = block.textHtml;
     detailContent.appendChild(text);
   } else if (!block.imageVersions && block.title) {
-    const title = document.createElement('div');
+    const title = document.createElement("div");
     title.innerHTML = block.title;
     detailContent.appendChild(title);
   }
 
   if (block.descriptionHtml) {
-    addMetaItem('Description', block.descriptionHtml, null, true);
+    addMetaItem("Description", block.descriptionHtml, null, true);
   }
 
-  addMetaItem('Block ID', String(block.id), block.arenaUrl || `https://www.are.na/block/${block.id}`);
+  addMetaItem(
+    "Block ID",
+    String(block.id),
+    block.arenaUrl || `https://www.are.na/block/${block.id}`,
+  );
+
+  if (block.owner?.name && block.owner.type === "User" && block.owner.slug) {
+    addMetaItem("By", block.owner.name, `#@${block.owner.slug}`, false, "", {
+      internal: true,
+    });
+  }
 
   if (block.connection?.connectedAt) {
-    addMetaItem('Connected At', new Date(block.connection.connectedAt).toLocaleString(), null);
+    addMetaItem(
+      "Connected At",
+      new Date(block.connection.connectedAt).toLocaleString(),
+      null,
+    );
   }
 
   if (block.connection?.connectedBy?.name) {
-    const userPageUrl = block.connection.connectedBy.slug
-      ? `https://www.are.na/${block.connection.connectedBy.slug}`
-      : null;
-    addMetaItem('Connected By', block.connection.connectedBy.name, userPageUrl, false);
+    // In-app user browsing; the router picks up the #@slug hash.
+    if (block.connection.connectedBy.slug) {
+      addMetaItem(
+        "Connected By",
+        block.connection.connectedBy.name,
+        `#@${block.connection.connectedBy.slug}`,
+        false,
+        "",
+        { internal: true },
+      );
+    } else {
+      addMetaItem(
+        "Connected By",
+        block.connection.connectedBy.name,
+        null,
+        false,
+      );
+    }
   }
 
   if (block.source?.url) {
-    addMetaItem('Source', block.source.title || block.source.url, block.source.url, false);
+    addMetaItem(
+      "Source",
+      block.source.title || block.source.url,
+      block.source.url,
+      false,
+    );
   }
+
+  setupConnectionsSection(block, requestToken);
+  setupCommentsSection(block, requestToken);
+  setupConnectSection(block, requestToken);
 }
 
 async function showDetailView(event) {
-  if (document.getElementById('detail-view').style.display === 'flex') {
-    closeDetailView();
+  if (document.getElementById("detail-view").style.display === "flex") {
+    closeAllDetailViews();
   }
 
   const blockElement = event.currentTarget;
   const blockId = blockElement.dataset.blockId;
 
   STATE.lastViewedBlockElement = blockElement;
-  blockElement.style.display = 'none';
+  blockElement.style.display = "none";
 
-  document.querySelectorAll('#detail-view-content img').forEach(img => {
+  document.querySelectorAll("#detail-view-content img").forEach((img) => {
     if (img.observer) {
       img.observer.disconnect();
     }
   });
 
-  const block = STATE.allFetchedBlocks.find(item => String(item.id) === String(blockId));
+  const block = STATE.allFetchedBlocks.find(
+    (item) => String(item.id) === String(blockId),
+  );
   if (!block) {
-    console.error('Could not find block data:', blockId);
+    console.error("Could not find block data:", blockId);
     return;
   }
 
-  const titleElement = document.getElementById('detail-view-title');
+  const titleElement = document.getElementById("detail-view-title");
   titleElement.textContent = getBlockDisplayTitle(block);
   titleElement.title = getBlockDisplayTitle(block);
 
-  document.getElementById('detail-view').style.display = 'flex';
+  document.getElementById("detail-view").style.display = "flex";
 
-  if (block.kind === 'channel') {
+  if (block.kind === "channel") {
     await showChannelDetailBySlug(block.slug, {
       title: getBlockDisplayTitle(block),
       contextItem: block,
-      primaryActionLabel: 'Go to Channel',
+      primaryActionLabel: "Go to Channel",
       primaryAction: () => {
         closeDetailView();
         router.navigate(block.slug);
       },
-      arenaUrl: block.arenaUrl
+      arenaUrl: block.arenaUrl,
     });
     return;
   }
@@ -657,7 +864,7 @@ async function showDetailView(event) {
 }
 
 function initBlockLimitWarning() {
-  const warningDialog = document.getElementById('block-limit-warning');
+  const warningDialog = document.getElementById("block-limit-warning");
   if (!warningDialog) {
     return;
   }
@@ -667,16 +874,17 @@ function initBlockLimitWarning() {
 
 async function main() {
   initHeaderBar();
+  initAccount();
   router.init();
   initBlockLimitWarning();
 
   try {
     await arenaDB.clearOldCache();
   } catch (error) {
-    console.error('Error clearing old cache:', error);
+    console.error("Error clearing old cache:", error);
   }
 
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener("beforeunload", () => {
     if (STATE.memoryMonitorId) {
       clearInterval(STATE.memoryMonitorId);
     }
@@ -684,7 +892,7 @@ async function main() {
       clearInterval(STATE.loadIntervalId);
     }
 
-    document.querySelectorAll('.block').forEach(block => {
+    document.querySelectorAll(".block").forEach((block) => {
       if (block._imageObserver) {
         block._imageObserver.disconnect();
       }

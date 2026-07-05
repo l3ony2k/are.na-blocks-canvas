@@ -198,6 +198,7 @@ const arenaAPI = (() => {
       source: normalizeSource(value.source),
       connection: normalizeConnection(value.connection),
       counts: normalizeCounts(value.counts),
+      commentCount: value.comment_count ?? null,
       imageVersions,
       coverImageVersions: kind === 'channel' ? imageVersions : null,
       attachment: value.attachment || null,
@@ -302,11 +303,182 @@ const arenaAPI = (() => {
     return response.meta?.total_count ?? 0;
   }
 
+  async function getMe() {
+    const data = await requestJson('/me');
+    return {
+      id: data.id ?? null,
+      slug: data.slug || null,
+      name: data.name || null,
+      avatar: data.avatar || null,
+      initials: data.initials || null
+    };
+  }
+
+  function normalizePagedList(response, page, per) {
+    return {
+      data: Array.isArray(response.data) ? response.data.map(normalizeArenaItem) : [],
+      meta: response.meta || {
+        current_page: page,
+        per_page: per,
+        total_pages: 1,
+        total_count: 0,
+        has_more_pages: false
+      }
+    };
+  }
+
+  // Channels created by a user; when authenticated as that user this
+  // includes private channels. Note: the API currently inverts the
+  // updated_at sort semantics on this endpoint (desc returns oldest first),
+  // so ask for "asc" and additionally sort client-side, newest first.
+  async function getUserChannelsPage(userId, page = 1, per = 100) {
+    const params = new URLSearchParams({
+      page: String(page),
+      per: String(per),
+      type: 'Channel',
+      sort: 'updated_at_asc'
+    });
+    const response = await requestJson(`/users/${encodeURIComponent(userId)}/contents?${params.toString()}`);
+    const result = normalizePagedList(response, page, per);
+    result.data.sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')));
+    return result;
+  }
+
+  // Channels a user follows. The API can only sort by follow date, so
+  // callers re-sort by channel update time client-side.
+  async function getUserFollowingChannelsPage(userId, page = 1, per = 100) {
+    const params = new URLSearchParams({
+      page: String(page),
+      per: String(per),
+      type: 'Channel'
+    });
+    const response = await requestJson(`/users/${encodeURIComponent(userId)}/following?${params.toString()}`);
+    return normalizePagedList(response, page, per);
+  }
+
+  async function getUserProfile(userId) {
+    const data = await requestJson(`/users/${encodeURIComponent(userId)}`);
+    return {
+      id: data.id ?? null,
+      slug: data.slug || null,
+      name: data.name || null,
+      avatar: data.avatar || null,
+      initials: data.initials || null,
+      bioHtml: data.bio?.html || null,
+      createdAt: data.created_at || null,
+      counts: {
+        channels: data.counts?.channels ?? null,
+        followers: data.counts?.followers ?? null,
+        following: data.counts?.following ?? null
+      }
+    };
+  }
+
+  // The authenticated user's activity feed; returns canvas-renderable
+  // items extracted from feed activities, newest first.
+  async function getFeedItems(limit = 100) {
+    const response = await requestJson(`/me/feed?limit=${Math.min(100, limit)}`);
+    const activities = Array.isArray(response.data) ? response.data : [];
+    const renderable = new Set(['Text', 'Image', 'Link', 'Attachment', 'Embed', 'Channel']);
+    const seen = new Set();
+    const items = [];
+
+    activities.forEach(activity => {
+      const subject = activity?.item;
+      if (!subject || !renderable.has(subject.type)) {
+        return;
+      }
+      const key = `${subject.type}:${subject.id}`;
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      items.push(normalizeArenaItem(subject));
+    });
+
+    return items;
+  }
+
+  // Channels a block appears in (its connections).
+  async function getBlockConnectionsPage(blockId, page = 1, per = 24) {
+    const params = new URLSearchParams({
+      page: String(page),
+      per: String(per),
+      sort: 'created_at_desc'
+    });
+    const response = await requestJson(`/blocks/${encodeURIComponent(blockId)}/connections?${params.toString()}`);
+    return normalizePagedList(response, page, per);
+  }
+
+  // Channels a channel appears in.
+  async function getChannelConnectionsPage(id, page = 1, per = 24) {
+    const params = new URLSearchParams({
+      page: String(page),
+      per: String(per),
+      sort: 'created_at_desc'
+    });
+    const response = await requestJson(`/channels/${encodeURIComponent(id)}/connections?${params.toString()}`);
+    return normalizePagedList(response, page, per);
+  }
+
+  async function getBlockCommentsPage(blockId, page = 1, per = 24) {
+    const params = new URLSearchParams({
+      page: String(page),
+      per: String(per)
+    });
+    const response = await requestJson(`/blocks/${encodeURIComponent(blockId)}/comments?${params.toString()}`);
+    return {
+      data: (Array.isArray(response.data) ? response.data : []).map(comment => ({
+        id: comment.id,
+        bodyHtml: comment.body?.html || null,
+        bodyPlain: comment.body?.plain || '',
+        createdAt: comment.created_at || null,
+        user: normalizeEntity(comment.user)
+      })),
+      meta: response.meta || { total_count: 0, has_more_pages: false, current_page: page }
+    };
+  }
+
+  // Connect a block to a channel. Requires a write-scope token.
+  async function createConnection(blockId, channelId) {
+    const response = await requestJson('/connections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        connectable_type: 'Block',
+        connectable_id: blockId,
+        channels: [{ id: channelId }]
+      })
+    });
+    const connection = Array.isArray(response.data) ? response.data[0] : response.data;
+    return { id: connection?.id ?? null };
+  }
+
+  async function deleteConnection(connectionId) {
+    const response = await fetch(`${BASE_URL}/connections/${encodeURIComponent(connectionId)}`, {
+      method: 'DELETE',
+      headers: buildHeaders()
+    });
+    if (!response.ok && response.status !== 204) {
+      throw new Error(`Are.na API ${response.status}`);
+    }
+  }
+
   return {
     getChannel,
     getChannelContentsPage,
     getAllChannelContents,
     getChannelFollowerCount,
+    getMe,
+    getUserChannelsPage,
+    getUserFollowingChannelsPage,
+    getUserProfile,
+    getFeedItems,
+    getBlockConnectionsPage,
+    getChannelConnectionsPage,
+    getBlockCommentsPage,
+    createConnection,
+    deleteConnection,
     normalizeArenaItem
   };
 })();
