@@ -1,3 +1,99 @@
+// Prioritized image loader for DOM layout modes (mix/tile). Instead of firing
+// hundreds of requests at once, loads run through a small concurrent queue
+// ordered by distance from the viewport center, so what the user is looking
+// at fills in first. High-res upgrades are deprioritized behind thumbnails.
+const IMAGE_LOAD_QUEUE = {
+  pending: [],
+  active: 0,
+  maxConcurrent: 10,
+  dirty: false,
+  scheduled: false
+};
+
+function queueImageLoad(entry) {
+  IMAGE_LOAD_QUEUE.pending.push(entry);
+  IMAGE_LOAD_QUEUE.dirty = true;
+  scheduleImageQueuePump();
+}
+
+// Call when block positions change (tile/shuffle) so pending loads re-sort.
+function reprioritizeImageQueue() {
+  if (IMAGE_LOAD_QUEUE.pending.length === 0) {
+    return;
+  }
+  IMAGE_LOAD_QUEUE.dirty = true;
+  scheduleImageQueuePump();
+}
+
+function scheduleImageQueuePump() {
+  if (IMAGE_LOAD_QUEUE.scheduled) {
+    return;
+  }
+  IMAGE_LOAD_QUEUE.scheduled = true;
+  requestAnimationFrame(() => {
+    IMAGE_LOAD_QUEUE.scheduled = false;
+    pumpImageQueue();
+  });
+}
+
+function imageLoadPriority(entry) {
+  const rect = entry.element.getBoundingClientRect();
+  const dx = rect.left + rect.width / 2 - window.innerWidth / 2;
+  const dy = rect.top + rect.height / 2 - window.innerHeight / 2;
+  const offscreen = rect.bottom < 0 || rect.right < 0 ||
+    rect.top > window.innerHeight || rect.left > window.innerWidth;
+  return Math.hypot(dx, dy) + (entry.upgrade ? 500000 : 0) + (offscreen ? 1000000 : 0);
+}
+
+function pumpImageQueue() {
+  const queue = IMAGE_LOAD_QUEUE;
+  if (queue.active >= queue.maxConcurrent || queue.pending.length === 0) {
+    return;
+  }
+
+  if (queue.dirty) {
+    queue.pending = queue.pending.filter(entry => entry.element.isConnected && entry.img.isConnected);
+    queue.pending.forEach(entry => {
+      entry.priority = imageLoadPriority(entry);
+    });
+    // Sorted descending so pop() takes the closest-to-center entry.
+    queue.pending.sort((a, b) => b.priority - a.priority);
+    queue.dirty = false;
+  }
+
+  while (queue.active < queue.maxConcurrent && queue.pending.length > 0) {
+    const entry = queue.pending.pop();
+    if (!entry.element.isConnected || !entry.img.isConnected) {
+      continue;
+    }
+
+    queue.active += 1;
+    const finish = () => {
+      queue.active -= 1;
+      pumpImageQueue();
+    };
+
+    if (entry.upgrade) {
+      const loader = new Image();
+      loader.onload = () => {
+        if (entry.img.isConnected && (!entry.validate || entry.validate())) {
+          entry.img.src = loader.src;
+        }
+        finish();
+      };
+      loader.onerror = () => {
+        console.warn(`Failed to load image: ${entry.url}`);
+        finish();
+      };
+      loader.src = entry.url;
+    } else {
+      entry.img.addEventListener('load', finish, { once: true });
+      entry.img.addEventListener('error', finish, { once: true });
+      entry.img.src = entry.url;
+    }
+  }
+}
+
 function temporaryRaiseBlock(element) {
   if (!element._tempRaised) {
     element.style.zIndex = '2';
@@ -28,18 +124,9 @@ function commitRaiseBlock(element) {
   element.style.zIndex = '';
   element._tempRaised = false;
 
-  const slug = STATE.channelSlugs[0];
   const newOrder = Array.from(document.querySelectorAll('.block:not([data-flow-instance])')).map(el => el.dataset.blockId);
   STATE.cachedBlockOrder = newOrder;
-
-  arenaDB.getChannel(slug).then(cachedData => {
-    if (cachedData) {
-      cachedData.order = newOrder;
-      return arenaDB.saveChannel(slug, cachedData.data);
-    }
-  }).catch(error => {
-    console.error('Error updating block order in cache:', error);
-  });
+  schedulePositionCacheSave();
 }
 
 function handleTouchEnd(event) {
@@ -108,17 +195,7 @@ function makeDraggable(element) {
         STATE.cachedBlockOrder.push(blockIdToMove);
       }
 
-      requestAnimationFrame(() => {
-        arenaDB.getChannel(STATE.channelSlugs[0]).then(cachedData => {
-          if (cachedData) {
-            cachedData.positions = STATE.cachedBlockPositions;
-            cachedData.order = STATE.cachedBlockOrder;
-            return arenaDB.saveChannel(STATE.channelSlugs[0], cachedData.data);
-          }
-        }).catch(error => {
-          console.error('Error updating block positions in cache:', error);
-        });
-      });
+      schedulePositionCacheSave();
     }
 
     isDragging = false;
@@ -348,7 +425,6 @@ function appendPreviewImage(element, block, options = {}) {
     if (ratioWidth && ratioHeight) {
       img.style.aspectRatio = `${ratioWidth} / ${ratioHeight}`;
     }
-    img.src = initialVersion.url;
   }
 
   img.onload = () => {
@@ -364,6 +440,15 @@ function appendPreviewImage(element, block, options = {}) {
 
   element.appendChild(img);
 
+  if (initialVersion?.url) {
+    if (element.dataset.flowInstance) {
+      // Flow DOM instances are pooled/recycled; load immediately.
+      img.src = initialVersion.url;
+    } else {
+      queueImageLoad({ element, img, url: initialVersion.url, upgrade: false });
+    }
+  }
+
   function loadHigherQualityImage() {
     const isMobile = isMobileDevice();
     const targetVersion = options.flowPreview
@@ -376,16 +461,13 @@ function appendPreviewImage(element, block, options = {}) {
       return;
     }
 
-    const highResImage = new Image();
-    highResImage.onerror = () => {
-      console.warn(`Failed to load image: ${targetVersion.url}`);
-    };
-    highResImage.onload = () => {
-      if (element._imageToken === imageToken && element.isConnected && img.isConnected) {
-        img.src = highResImage.src;
-      }
-    };
-    highResImage.src = targetVersion.url;
+    queueImageLoad({
+      element,
+      img,
+      url: targetVersion.url,
+      upgrade: true,
+      validate: () => element._imageToken === imageToken
+    });
   }
 
   if (shouldUseObserver && 'IntersectionObserver' in window) {
@@ -489,22 +571,7 @@ function renderTextBlock(element, block) {
 function updateBlockPosition(block, x, y, rotation) {
   const blockId = block.dataset.blockId;
   STATE.cachedBlockPositions[blockId] = { x, y, rotation };
-
-  if (STATE._savePositionTimeout) {
-    clearTimeout(STATE._savePositionTimeout);
-  }
-
-  STATE._savePositionTimeout = setTimeout(() => {
-    const slug = STATE.channelSlugs[0];
-    arenaDB.getChannel(slug).then(cachedData => {
-      if (cachedData) {
-        cachedData.positions = STATE.cachedBlockPositions;
-        return arenaDB.saveChannel(slug, cachedData.data);
-      }
-    }).catch(error => {
-      console.error('Error updating block positions in cache:', error);
-    });
-  }, 1000);
+  schedulePositionCacheSave(1000);
 }
 
 const handleResize = throttle(() => {
@@ -552,21 +619,8 @@ const handleResize = throttle(() => {
     }
   });
 
-  if (STATE._resizePositionTimeout) {
-    clearTimeout(STATE._resizePositionTimeout);
-  }
-
-  STATE._resizePositionTimeout = setTimeout(() => {
-    const slug = STATE.channelSlugs[0];
-    arenaDB.getChannel(slug).then(cachedData => {
-      if (cachedData) {
-        cachedData.positions = STATE.cachedBlockPositions;
-        return arenaDB.saveChannel(slug, cachedData.data);
-      }
-    }).catch(error => {
-      console.error('Error updating positions after resize:', error);
-    });
-  }, 1000);
+  reprioritizeImageQueue();
+  schedulePositionCacheSave(1000);
 }, 100);
 
 window.addEventListener('resize', handleResize);

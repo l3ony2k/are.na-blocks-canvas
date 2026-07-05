@@ -48,7 +48,16 @@ class ArenaDB {
       const tx = this.db.transaction('channels', 'readwrite');
       const store = tx.objectStore('channels');
       
-      const order = Array.from(document.querySelectorAll('.block:not([data-flow-instance])')).map(el => el.dataset.blockId);
+      // DOM order captures the current stacking order, but is empty or
+      // partial in flow mode / during progressive loads. Fall back to the
+      // in-memory order for any blocks not currently rendered so the saved
+      // order never loses entries.
+      const domOrder = Array.from(document.querySelectorAll('.block:not([data-flow-instance])')).map(el => el.dataset.blockId);
+      const seen = new Set(domOrder.map(String));
+      const rest = (STATE.cachedBlockOrder || [])
+        .map(String)
+        .filter(id => !seen.has(id));
+      const order = [...domOrder, ...rest];
   
       const state = {
         slug,

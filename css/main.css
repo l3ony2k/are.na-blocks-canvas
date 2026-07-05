@@ -79,6 +79,7 @@ blockquote {
   max-height: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+  contain: layout paint style;
   z-index: 1;
   top: 30px;
   /* this need to be 30px, this one is necessary */
@@ -96,6 +97,15 @@ body.flow-dragging {
   position: fixed;
   inset: 35px 0 0 0;
   overflow: hidden;
+  z-index: 1;
+  touch-action: none;
+}
+
+#flow-canvas {
+  position: fixed;
+  inset: 35px 0 0 0;
+  width: 100vw;
+  height: calc(100vh - 35px);
   z-index: 1;
   touch-action: none;
 }

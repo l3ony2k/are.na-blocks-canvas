@@ -295,8 +295,9 @@ function initHeaderBar() {
     showCurrentChannelDetail();
   });
 
-  // Initialize layout mode button
+  // Initialize layout mode button (label always shows the CURRENT mode)
   const tileButton = document.getElementById('tile-button');
+  setLayoutButtonText(getSavedLayoutMode());
   tileButton.addEventListener('click', () => {
     cycleLayoutMode();
   });
@@ -327,6 +328,10 @@ function initHeaderBar() {
     localStorage.setItem('theme', newTheme);
     updateThemeToggleText(newTheme);
     updatePWAThemeColors(newTheme);
+
+    if (STATE.layoutMode === 'flow') {
+      requestFlowRender();
+    }
   });
 
   document.getElementById('about-button').addEventListener('click', showAboutView);
@@ -351,42 +356,80 @@ function setLayoutButtonText(text) {
   }
 }
 
-function cycleLayoutMode() {
-  if (STATE.layoutMode === 'mix') {
-    setLayoutMode('tile');
-  } else if (STATE.layoutMode === 'tile') {
-    setLayoutMode('flow');
-  } else {
-    setLayoutMode('mix');
-  }
+const LAYOUT_MODES = ['mix', 'tile', 'flow'];
+
+function getSavedLayoutMode() {
+  const saved = localStorage.getItem('layoutMode');
+  return LAYOUT_MODES.includes(saved) ? saved : 'mix';
 }
 
-function setLayoutMode(mode) {
-  if (mode === STATE.layoutMode) {
+function cycleLayoutMode() {
+  const nextIndex = (LAYOUT_MODES.indexOf(STATE.layoutMode) + 1) % LAYOUT_MODES.length;
+  setLayoutMode(LAYOUT_MODES[nextIndex]);
+}
+
+function setLayoutMode(mode, options = {}) {
+  const settings = { persist: true, ...options };
+
+  if (!LAYOUT_MODES.includes(mode) || mode === STATE.layoutMode) {
     return;
+  }
+
+  if (settings.persist) {
+    localStorage.setItem('layoutMode', mode);
   }
 
   if (STATE.layoutMode === 'flow') {
     exitFlowMode();
   }
 
+  STATE.layoutMode = mode;
+  setLayoutButtonText(mode);
+
   if (mode === 'tile') {
-    STATE.layoutMode = 'tile';
     tileBlocks();
-    setLayoutButtonText('flow');
+  } else if (mode === 'flow') {
+    enterFlowMode();
+  } else {
+    shuffleBlocks();
+  }
+}
+
+// Re-apply the persisted layout mode after a channel's blocks have been
+// loaded and rendered (default rendering is always mix-style DOM blocks).
+function applySavedLayoutMode() {
+  const mode = getSavedLayoutMode();
+  setLayoutButtonText(mode);
+
+  if (mode === STATE.layoutMode) {
     return;
   }
 
   if (mode === 'flow') {
     STATE.layoutMode = 'flow';
     enterFlowMode();
-    setLayoutButtonText('mix');
-    return;
+  } else if (mode === 'tile') {
+    STATE.layoutMode = 'tile';
+    tileBlocks();
+  } else {
+    STATE.layoutMode = 'mix';
   }
+}
 
-  STATE.layoutMode = 'mix';
-  shuffleBlocks();
-  setLayoutButtonText('tile');
+// Debounced write-through of STATE.cachedBlockPositions / block order to IndexedDB.
+function schedulePositionCacheSave(delay = 800) {
+  clearTimeout(STATE._positionSaveTimeout);
+  STATE._positionSaveTimeout = setTimeout(() => {
+    STATE._positionSaveTimeout = null;
+    const slug = STATE.channelSlugs[0];
+    arenaDB.getChannel(slug).then(cachedData => {
+      if (cachedData) {
+        return arenaDB.saveChannel(slug, cachedData.data);
+      }
+    }).catch(error => {
+      console.error('Error updating block positions in cache:', error);
+    });
+  }, delay);
 }
 
 // Initialize UI event listeners
@@ -458,27 +501,20 @@ function tileBlocks() {
     y = Math.max(headerHeight, Math.min(window.innerHeight - blockHeight, y + randomOffsetY));
     
     block.style.transform = `translate(${x}px, ${y}px) rotate(0deg)`;
-    
+
     // Update cached position
     const blockId = block.dataset.blockId;
     if (blockId) {
-      STATE.cachedBlockPositions[blockId] = { 
-        x: x, 
-        y: y, 
-        rotation: 0 
+      STATE.cachedBlockPositions[blockId] = {
+        x: x,
+        y: y,
+        rotation: 0
       };
     }
   });
-  
-  // Save to cache
-  const slug = STATE.channelSlugs[0];
-  arenaDB.getChannel(slug).then(cachedData => {
-    if (cachedData) {
-      return arenaDB.saveChannel(slug, cachedData.data);
-    }
-  }).catch(error => {
-    console.error('Error updating block positions in cache:', error);
-  });
+
+  schedulePositionCacheSave();
+  reprioritizeImageQueue();
 }
 
 function shuffleBlocks() {
@@ -502,27 +538,20 @@ function shuffleBlocks() {
     const rotation = Math.random() * 20 - 10;
     
     block.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg)`;
-    
+
     // Update cached position
     const blockId = block.dataset.blockId;
     if (blockId) {
-      STATE.cachedBlockPositions[blockId] = { 
-        x: x, 
-        y: y, 
-        rotation: rotation 
+      STATE.cachedBlockPositions[blockId] = {
+        x: x,
+        y: y,
+        rotation: rotation
       };
     }
   });
-  
-  // Save to cache
-  const slug = STATE.channelSlugs[0];
-  arenaDB.getChannel(slug).then(cachedData => {
-    if (cachedData) {
-      return arenaDB.saveChannel(slug, cachedData.data);
-    }
-  }).catch(error => {
-    console.error('Error updating block positions in cache:', error);
-  });
+
+  schedulePositionCacheSave();
+  reprioritizeImageQueue();
 }
 
 function getFlowGapPixels() {
@@ -546,7 +575,15 @@ function getOrderedFlowBlocks() {
 function estimateFlowBlockHeight(block) {
   const maxHeight = CONFIG.flowBlockMaxHeight;
   const width = CONFIG.flowBlockWidth;
-  const paddingAndBorder = 14;
+  const padding = CONFIG.flowBlockPadding;
+  const borderWidth = CONFIG.flowBorderWidth;
+  const contentWidth = width - padding * 2 - borderWidth * 2;
+
+  // Channel blocks always render as centered text, even when the channel
+  // has a cover image, so give them a fixed card height.
+  if (block.kind === 'channel') {
+    return 150;
+  }
 
   const versions = block.imageVersions;
   const measured = STATE.flowImageMeasurements[String(block.id)];
@@ -555,21 +592,19 @@ function estimateFlowBlockHeight(block) {
   const sourceHeight = measured?.height || versions?.height || imageVersion?.height;
 
   if (sourceWidth && sourceHeight) {
-    return Math.min(maxHeight, Math.max(80, (sourceHeight / sourceWidth) * width + paddingAndBorder));
+    return Math.min(maxHeight, Math.max(80, (sourceHeight / sourceWidth) * contentWidth + padding * 2 + borderWidth * 2));
   }
 
   if (versions) {
-    return Math.min(maxHeight, Math.max(120, width * 0.75 + paddingAndBorder));
+    return Math.min(maxHeight, Math.max(120, contentWidth * 0.75 + padding * 2 + borderWidth * 2));
   }
 
-  if (block.kind === 'channel') {
-    return 150;
-  }
-
-  const text = block.title || block.text || block.description || '';
+  const text = block.textPlain || block.title || block.descriptionPlain || '';
   if (block.kind === 'text' || text) {
-    const approxLines = Math.ceil(String(text).replace(/<[^>]+>/g, '').length / 24);
-    return Math.min(maxHeight, Math.max(90, approxLines * 22 + paddingAndBorder));
+    // ~19 monospace chars fit per 186px content line; CJK-heavy text gets
+    // fewer, but overly tall blocks just show more before the ellipsis.
+    const approxLines = Math.ceil(String(text).replace(/<[^>]+>/g, '').length / 19);
+    return Math.min(maxHeight, Math.max(90, approxLines * CONFIG.flowTextLineHeight + padding * 2 + borderWidth * 2));
   }
 
   return 180;
@@ -693,6 +728,311 @@ function removeFlowSurface() {
   }
 }
 
+function createFlowCanvas() {
+  let canvas = document.getElementById('flow-canvas');
+  if (canvas) {
+    return canvas;
+  }
+
+  canvas = document.createElement('canvas');
+  canvas.id = 'flow-canvas';
+  document.body.appendChild(canvas);
+  return canvas;
+}
+
+function removeFlowCanvas() {
+  const canvas = document.getElementById('flow-canvas');
+  if (canvas) {
+    canvas.remove();
+  }
+}
+
+const FLOW_FONT_STACK = 'ui-monospace, Menlo, Monaco, "Cascadia Mono", monospace';
+
+// Sample theme colors once per render pass instead of per block per frame.
+function getFlowCanvasTheme() {
+  const rootStyle = getComputedStyle(document.documentElement);
+  const pick = (name, fallback) => (rootStyle.getPropertyValue(name) || '').trim() || fallback;
+
+  return {
+    blockBg: pick('--block-bg', '#fff'),
+    blockBorder: pick('--block-border', '#000'),
+    channelBorder: pick('--channel-block-border', '#17ac10'),
+    channelText: pick('--channel-block-text', '#17ac10'),
+    textColor: pick('--text-color', '#111')
+  };
+}
+
+function resizeFlowCanvas() {
+  if (!STATE.flow?.canvas) {
+    return;
+  }
+
+  const canvas = STATE.flow.canvas;
+  const dpr = window.devicePixelRatio || 1;
+  const width = window.innerWidth;
+  const height = Math.max(1, window.innerHeight - 35);
+  const deviceWidth = Math.floor(width * dpr);
+  const deviceHeight = Math.floor(height * dpr);
+
+  // Reallocating the backing store clears the canvas and is expensive,
+  // so only do it when the size actually changed.
+  if (canvas.width !== deviceWidth || canvas.height !== deviceHeight) {
+    canvas.width = deviceWidth;
+    canvas.height = deviceHeight;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+  }
+
+  STATE.flow.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function getCanvasText(block) {
+  const cache = STATE.flow?.textCache;
+  const key = String(block.id);
+  if (cache?.has(key)) {
+    return cache.get(key);
+  }
+
+  let text = (block.textPlain || block.descriptionPlain || '').trim();
+  if (!text) {
+    const html = block.textHtml || block.descriptionHtml || '';
+    if (html) {
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      text = temp.textContent.trim();
+    } else {
+      text = block.title || block.source?.title || block.attachment?.filename || block.embed?.title || block.rawType || 'Block';
+    }
+  }
+
+  cache?.set(key, text);
+  return text;
+}
+
+function getFlowImage(block) {
+  if (!block.imageVersions) {
+    return null;
+  }
+
+  const versions = block.imageVersions;
+  // Flow blocks render at ~200 CSS px wide, so a small/medium version is
+  // plenty even on 2x displays and far cheaper than display/large.
+  const version = versions.preview || versions.thumb || versions.display || versions.large || versions.original;
+  if (!version?.url) {
+    return null;
+  }
+
+  let entry = STATE.flow.imageCache.get(version.url);
+  if (entry) {
+    return entry;
+  }
+
+  const image = new Image();
+  image.decoding = 'async';
+  image.onload = () => {
+    entry.loaded = true;
+    if (image.naturalWidth && image.naturalHeight) {
+      updateFlowImageMeasurement(block.id, image.naturalWidth, image.naturalHeight);
+    }
+    requestFlowRender();
+  };
+  image.onerror = () => {
+    entry.failed = true;
+    requestFlowRender();
+  };
+
+  entry = {
+    image,
+    loaded: false,
+    failed: false
+  };
+  STATE.flow.imageCache.set(version.url, entry);
+  image.src = version.url;
+  return entry;
+}
+
+// Wrap text into at most maxLines lines fitting maxWidth with the current
+// ctx.font. CJK characters break per glyph; overlong tokens are hard-broken.
+// The last line gets an ellipsis when the text is truncated.
+function wrapCanvasText(ctx, text, maxWidth, maxLines) {
+  const source = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!source || maxLines < 1 || maxWidth <= 0) {
+    return [];
+  }
+
+  const tokens = source.match(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]|[^\s\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+|\s/g) || [];
+  const lines = [];
+  let line = '';
+  let truncated = false;
+
+  function breakLongToken(token) {
+    let rest = token;
+    while (rest && ctx.measureText(rest).width > maxWidth) {
+      if (lines.length >= maxLines) {
+        truncated = true;
+        return '';
+      }
+      let chunk = '';
+      for (const char of rest) {
+        if (chunk && ctx.measureText(chunk + char).width > maxWidth) {
+          break;
+        }
+        chunk += char;
+      }
+      lines.push(chunk);
+      rest = rest.slice(chunk.length);
+    }
+    return rest;
+  }
+
+  for (const token of tokens) {
+    if (lines.length >= maxLines) {
+      truncated = true;
+      break;
+    }
+
+    const candidate = line + token;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      line = candidate;
+      continue;
+    }
+
+    if (line.trim()) {
+      lines.push(line.trimEnd());
+    }
+    line = breakLongToken(token.trimStart());
+  }
+
+  if (line.trim()) {
+    if (lines.length < maxLines && !truncated) {
+      lines.push(line.trimEnd());
+    } else {
+      truncated = true;
+    }
+  }
+
+  if (truncated && lines.length > 0) {
+    lines.length = Math.min(lines.length, maxLines);
+    let last = lines[lines.length - 1];
+    while (last && ctx.measureText(`${last}\u2026`).width > maxWidth) {
+      last = last.slice(0, -1);
+    }
+    lines[lines.length - 1] = `${last}\u2026`;
+  }
+
+  return lines;
+}
+
+// Mirrors the DOM channel-block style: small "Connected Channel" header with
+// a large, centered, wrapped title below it.
+function drawFlowChannelBlock(ctx, block, theme, contentX, contentY, contentWidth, contentHeight) {
+  const headerFontSize = 12;
+  const headerLineHeight = headerFontSize + 4;
+  const titleFontSize = CONFIG.flowChannelFontSize;
+  const titleLineHeight = CONFIG.flowChannelLineHeight;
+  const groupGap = 5;
+  const centerX = contentX + contentWidth / 2;
+
+  ctx.fillStyle = theme.channelText;
+  ctx.textAlign = 'center';
+
+  ctx.font = `${titleFontSize}px ${FLOW_FONT_STACK}`;
+  const maxTitleLines = Math.max(1, Math.floor((contentHeight - headerLineHeight - groupGap) / titleLineHeight));
+  const titleLines = wrapCanvasText(ctx, block.title || 'Untitled Channel', contentWidth, maxTitleLines);
+
+  const groupHeight = headerLineHeight + groupGap + titleLines.length * titleLineHeight;
+  let cursorY = contentY + Math.max(0, (contentHeight - groupHeight) / 2);
+
+  ctx.font = `${headerFontSize}px ${FLOW_FONT_STACK}`;
+  ctx.fillText('Connected Channel', centerX, cursorY);
+  cursorY += headerLineHeight + groupGap;
+
+  ctx.font = `${titleFontSize}px ${FLOW_FONT_STACK}`;
+  const titleOffset = (titleLineHeight - titleFontSize) / 2;
+  titleLines.forEach((titleLine, index) => {
+    ctx.fillText(titleLine, centerX, cursorY + index * titleLineHeight + titleOffset);
+  });
+}
+
+function drawFlowCanvasBlock(ctx, placement, theme) {
+  const { item, x, y } = placement;
+  const block = item.block;
+  const width = item.width;
+  const height = item.height;
+  const padding = CONFIG.flowBlockPadding;
+  const borderWidth = CONFIG.flowBorderWidth;
+  const contentX = padding + borderWidth;
+  const contentY = padding + borderWidth;
+  const contentWidth = width - (padding + borderWidth) * 2;
+  const contentHeight = height - (padding + borderWidth) * 2;
+
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.fillStyle = theme.blockBg;
+  ctx.strokeStyle = block.kind === 'channel' ? theme.channelBorder : theme.blockBorder;
+  ctx.lineWidth = borderWidth;
+  ctx.beginPath();
+  ctx.rect(borderWidth / 2, borderWidth / 2, width - borderWidth, height - borderWidth);
+  ctx.fill();
+  ctx.stroke();
+
+  // Everything inside the border is clipped so content can never bleed out.
+  ctx.beginPath();
+  ctx.rect(contentX, contentY, contentWidth, contentHeight);
+  ctx.clip();
+  ctx.textBaseline = 'top';
+
+  if (block.kind === 'channel') {
+    drawFlowChannelBlock(ctx, block, theme, contentX, contentY, contentWidth, contentHeight);
+    ctx.restore();
+    return;
+  }
+
+  const imageEntry = getFlowImage(block);
+  if (imageEntry && !imageEntry.failed) {
+    if (imageEntry.loaded) {
+      const image = imageEntry.image;
+      const scale = Math.min(contentWidth / image.naturalWidth, contentHeight / image.naturalHeight);
+      const drawWidth = image.naturalWidth * scale;
+      const drawHeight = image.naturalHeight * scale;
+      ctx.drawImage(
+        image,
+        contentX + (contentWidth - drawWidth) / 2,
+        contentY + (contentHeight - drawHeight) / 2,
+        drawWidth,
+        drawHeight
+      );
+    } else {
+      ctx.fillStyle = theme.textColor;
+      ctx.globalAlpha = 0.7;
+      ctx.font = `${CONFIG.flowTextFontSize}px ${FLOW_FONT_STACK}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        'Loading image...',
+        contentX + contentWidth / 2,
+        contentY + Math.max(0, contentHeight / 2 - CONFIG.flowTextFontSize / 2)
+      );
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    return;
+  }
+
+  ctx.fillStyle = theme.textColor;
+  ctx.font = `${CONFIG.flowTextFontSize}px ${FLOW_FONT_STACK}`;
+  ctx.textAlign = 'left';
+  const lineHeight = CONFIG.flowTextLineHeight;
+  const maxLines = Math.max(1, Math.floor(contentHeight / lineHeight));
+  const lines = wrapCanvasText(ctx, getCanvasText(block), contentWidth, maxLines);
+  const lineOffset = (lineHeight - CONFIG.flowTextFontSize) / 2;
+  lines.forEach((textLine, index) => {
+    ctx.fillText(textLine, contentX, contentY + index * lineHeight + lineOffset);
+  });
+
+  ctx.restore();
+}
+
 function findFirstVisibleFlowItem(items, localTop) {
   let low = 0;
   let high = items.length;
@@ -725,15 +1065,15 @@ function findPastVisibleFlowItem(items, localBottom) {
   return low;
 }
 
-function renderFlowViewport() {
+function getVisibleFlowPlacements() {
   if (STATE.layoutMode !== 'flow' || !STATE.flow) {
-    return;
+    return { visibleKeys: new Set(), placements: [] };
   }
 
   const flow = STATE.flow;
   const { pattern } = flow;
   if (!pattern.hasItems) {
-    return;
+    return { visibleKeys: new Set(), placements: [] };
   }
 
   const buffer = CONFIG.flowRenderBuffer;
@@ -785,6 +1125,22 @@ function renderFlowViewport() {
     });
   }
 
+  return { visibleKeys, placements };
+}
+
+function renderFlowViewport() {
+  if (STATE.layoutMode !== 'flow' || !STATE.flow) {
+    return;
+  }
+
+  if (STATE.flow.renderer === 'canvas') {
+    renderFlowCanvasViewport();
+    return;
+  }
+
+  const { visibleKeys, placements } = getVisibleFlowPlacements();
+  const flow = STATE.flow;
+
   flow.visible.forEach((element, key) => {
     if (!visibleKeys.has(key)) {
       releaseFlowBlockElement(key, element);
@@ -802,6 +1158,34 @@ function renderFlowViewport() {
     }
 
     positionFlowBlockElement(element, placement.item, placement.x, placement.y);
+  });
+}
+
+function renderFlowCanvasViewport() {
+  const flow = STATE.flow;
+  if (!flow?.ctx) {
+    return;
+  }
+
+  resizeFlowCanvas();
+  const { placements } = getVisibleFlowPlacements();
+  const ctx = flow.ctx;
+  const width = window.innerWidth;
+  const height = Math.max(1, window.innerHeight - 35);
+  const theme = getFlowCanvasTheme();
+
+  ctx.clearRect(0, 0, width, height);
+  flow.hitRegions = [];
+
+  placements.forEach(placement => {
+    drawFlowCanvasBlock(ctx, placement, theme);
+    flow.hitRegions.push({
+      x: placement.x,
+      y: placement.y,
+      width: placement.item.width,
+      height: placement.item.height,
+      block: placement.item.block
+    });
   });
 }
 
@@ -854,6 +1238,40 @@ function requestFlowRender() {
   });
 }
 
+function flowOffsetStorageKey() {
+  return `flowOffset:${STATE.channelSlugs[0]}`;
+}
+
+function loadSavedFlowOffset() {
+  try {
+    const raw = localStorage.getItem(flowOffsetStorageKey());
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) {
+      return parsed;
+    }
+  } catch (error) {
+    // Ignore malformed storage entries
+  }
+  return { x: 0, y: 0 };
+}
+
+function scheduleFlowOffsetSave() {
+  clearTimeout(STATE._flowOffsetSaveTimeout);
+  STATE._flowOffsetSaveTimeout = setTimeout(() => {
+    if (!STATE.flow) {
+      return;
+    }
+    try {
+      localStorage.setItem(
+        flowOffsetStorageKey(),
+        JSON.stringify({ x: STATE.flow.offsetX, y: STATE.flow.offsetY })
+      );
+    } catch (error) {
+      // Storage may be full or unavailable; scroll position is non-critical
+    }
+  }, 300);
+}
+
 function moveFlowViewport(deltaX, deltaY) {
   if (!STATE.flow) {
     return;
@@ -861,6 +1279,7 @@ function moveFlowViewport(deltaX, deltaY) {
 
   STATE.flow.offsetX -= deltaX;
   STATE.flow.offsetY -= deltaY;
+  scheduleFlowOffsetSave();
   requestFlowRender();
 }
 
@@ -885,6 +1304,7 @@ function handleFlowPointerDown(event) {
 
   STATE.flow.isDragging = true;
   STATE.flow.dragPointerId = event.pointerId;
+  STATE.flow.dragMoved = 0;
   STATE.flow.lastPointerX = event.clientX;
   STATE.flow.lastPointerY = event.clientY;
   document.body.classList.add('flow-dragging');
@@ -903,6 +1323,7 @@ function handleFlowPointerMove(event) {
   const deltaY = event.clientY - STATE.flow.lastPointerY;
   STATE.flow.lastPointerX = event.clientX;
   STATE.flow.lastPointerY = event.clientY;
+  STATE.flow.dragMoved += Math.abs(deltaX) + Math.abs(deltaY);
   moveFlowViewport(-deltaX, -deltaY);
 }
 
@@ -916,6 +1337,74 @@ function endFlowPointerDrag(event) {
   document.body.classList.remove('flow-dragging');
 }
 
+function getFlowCanvasBlockAt(clientX, clientY) {
+  if (!STATE.flow?.hitRegions) {
+    return null;
+  }
+
+  const y = clientY - 35;
+  for (let index = STATE.flow.hitRegions.length - 1; index >= 0; index -= 1) {
+    const region = STATE.flow.hitRegions[index];
+    if (
+      clientX >= region.x &&
+      clientX <= region.x + region.width &&
+      y >= region.y &&
+      y <= region.y + region.height
+    ) {
+      return region.block;
+    }
+  }
+
+  return null;
+}
+
+function handleFlowCanvasDoubleClick(event) {
+  const block = getFlowCanvasBlockAt(event.clientX, event.clientY);
+  if (!block) {
+    return;
+  }
+
+  const target = {
+    dataset: {
+      blockId: String(block.id)
+    },
+    style: {
+      display: ''
+    }
+  };
+
+  showDetailView({
+    currentTarget: target
+  });
+}
+
+// Browsers don't reliably synthesize dblclick on a touch-action:none canvas,
+// so detect double-taps manually for touch pointers.
+function handleFlowCanvasPointerUp(event) {
+  if (event.pointerType !== 'touch' || !STATE.flow) {
+    return;
+  }
+
+  const flow = STATE.flow;
+  if (flow.dragMoved > 10) {
+    flow.lastTapTime = 0;
+    return;
+  }
+
+  const now = Date.now();
+  const isDoubleTap = now - (flow.lastTapTime || 0) < CONFIG.doubleClickDelay &&
+    Math.hypot(event.clientX - flow.lastTapX, event.clientY - flow.lastTapY) < 30;
+
+  if (isDoubleTap) {
+    flow.lastTapTime = 0;
+    handleFlowCanvasDoubleClick(event);
+  } else {
+    flow.lastTapTime = now;
+    flow.lastTapX = event.clientX;
+    flow.lastTapY = event.clientY;
+  }
+}
+
 function enterFlowMode() {
   if (!STATE.allFetchedBlocks.length) {
     return;
@@ -927,30 +1416,47 @@ function enterFlowMode() {
 
   document.body.classList.add('flow-mode');
 
+  const canvas = createFlowCanvas();
+  const savedOffset = loadSavedFlowOffset();
+
   STATE.flow = {
-    offsetX: 0,
-    offsetY: 0,
+    renderer: 'canvas',
+    offsetX: savedOffset.x,
+    offsetY: savedOffset.y,
     pattern: buildFlowPattern(),
-    surface: createFlowSurface(),
+    surface: null,
+    canvas,
+    ctx: canvas.getContext('2d', { alpha: true }),
     visible: new Map(),
     pool: [],
+    imageCache: new Map(),
+    textCache: new Map(),
+    hitRegions: [],
     isDragging: false,
     dragPointerId: null,
+    dragMoved: 0,
     lastPointerX: 0,
     lastPointerY: 0,
+    lastTapTime: 0,
+    lastTapX: 0,
+    lastTapY: 0,
     measurementFrame: null,
     renderFrame: null
   };
 
-  STATE.flow.surface.addEventListener('wheel', handleFlowWheel, { passive: false });
+  resizeFlowCanvas();
+  canvas.addEventListener('wheel', handleFlowWheel, { passive: false });
+  canvas.addEventListener('dblclick', handleFlowCanvasDoubleClick);
+  canvas.addEventListener('pointerup', handleFlowCanvasPointerUp);
   document.addEventListener('pointerdown', handleFlowPointerDown);
   document.addEventListener('pointermove', handleFlowPointerMove);
   document.addEventListener('pointerup', endFlowPointerDrag);
   document.addEventListener('pointercancel', endFlowPointerDrag);
+
   renderFlowViewport();
 }
 
-function exitFlowMode() {
+function exitFlowMode(renderBlocksAfter = true) {
   if (!STATE.flow) {
     document.body.classList.remove('flow-mode', 'flow-dragging');
     removeFlowSurface();
@@ -964,16 +1470,27 @@ function exitFlowMode() {
     cancelAnimationFrame(STATE.flow.measurementFrame);
   }
 
-  STATE.flow.surface.removeEventListener('wheel', handleFlowWheel);
+  if (STATE.flow.surface) {
+    STATE.flow.surface.removeEventListener('wheel', handleFlowWheel);
+  }
+  if (STATE.flow.canvas) {
+    STATE.flow.canvas.removeEventListener('wheel', handleFlowWheel);
+    STATE.flow.canvas.removeEventListener('dblclick', handleFlowCanvasDoubleClick);
+    STATE.flow.canvas.removeEventListener('pointerup', handleFlowCanvasPointerUp);
+  }
   document.removeEventListener('pointerdown', handleFlowPointerDown);
   document.removeEventListener('pointermove', handleFlowPointerMove);
   document.removeEventListener('pointerup', endFlowPointerDrag);
   document.removeEventListener('pointercancel', endFlowPointerDrag);
   clearFlowInstances();
   removeFlowSurface();
+  removeFlowCanvas();
   STATE.flow = null;
   document.body.classList.remove('flow-mode', 'flow-dragging');
-  renderInitialBlocksForCurrentChannel();
+
+  if (renderBlocksAfter) {
+    renderInitialBlocksForCurrentChannel();
+  }
 }
 
 function renderInitialBlocksForCurrentChannel() {
@@ -997,13 +1514,15 @@ function renderInitialBlocksForCurrentChannel() {
   }
 }
 
-// Add new function to reset tile button
+// Reset the transient layout state when switching channels. The persisted
+// mode is re-applied by applySavedLayoutMode() once the new channel renders,
+// so skip re-rendering the old channel's blocks here.
 function resetTileButton() {
   if (STATE.layoutMode === 'flow') {
-    exitFlowMode();
+    exitFlowMode(false);
   }
   STATE.layoutMode = 'mix';
-  setLayoutButtonText('tile');
+  setLayoutButtonText(getSavedLayoutMode());
 }
 
 // Add new function to show current channel detail
@@ -1111,6 +1630,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     if (currentTheme === 'system') {
       updatePWAThemeColors('system');
+      if (STATE.layoutMode === 'flow') {
+        requestFlowRender();
+      }
     }
   });
 });

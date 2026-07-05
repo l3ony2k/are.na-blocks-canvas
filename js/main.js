@@ -176,6 +176,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
         }
 
         outputLog(`[Cache] Successfully loaded ${STATE.currentlyDisplayedBlocks} blocks`);
+        applySavedLayoutMode();
         return;
       }
     } catch (error) {
@@ -206,6 +207,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
 
     loadMoreBlocks();
     STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
+    applySavedLayoutMode();
     outputLog(`[API] Successfully loaded ${blocks.length} blocks`);
   } catch (error) {
     console.error('Error fetching blocks:', error);
@@ -308,7 +310,7 @@ function createBlockLimitWarningDialog() {
   title.textContent = 'Block Limit Reached';
 
   const description = document.createElement('p');
-  description.innerHTML = 'This channel has more than <span id="block-limit-count"></span> blocks. Loading more may affect performance on your device.';
+  description.innerHTML = 'This channel has more than <span id="block-limit-count"></span> blocks. Loading more may affect performance on your device. Flow mode can browse the whole channel smoothly.';
 
   const buttonGroup = document.createElement('div');
   buttonGroup.className = 'button-group';
@@ -317,11 +319,16 @@ function createBlockLimitWarningDialog() {
   loadMoreButton.id = 'load-more-blocks-btn';
   loadMoreButton.textContent = 'Load More';
 
+  const flowModeButton = document.createElement('button');
+  flowModeButton.id = 'use-flow-mode-btn';
+  flowModeButton.textContent = 'Use Flow';
+
   const cancelButton = document.createElement('button');
   cancelButton.id = 'cancel-load-more-btn';
   cancelButton.textContent = 'Cancel';
 
   buttonGroup.appendChild(loadMoreButton);
+  buttonGroup.appendChild(flowModeButton);
   buttonGroup.appendChild(cancelButton);
   content.appendChild(title);
   content.appendChild(description);
@@ -372,6 +379,14 @@ function initBlockLimitWarningListeners() {
     loadMoreBlocks();
   };
 
+  const flowModeButton = document.getElementById('use-flow-mode-btn');
+  if (flowModeButton) {
+    flowModeButton.onclick = () => {
+      warningDialog.style.display = 'none';
+      setLayoutMode('flow');
+    };
+  }
+
   cancelButton.onclick = () => {
     warningDialog.style.display = 'none';
     CONFIG.userOverrideBlockLimit = false;
@@ -401,6 +416,15 @@ function loadMoreBlocks() {
   if (STATE.isLoading) {
     return;
   }
+
+  // Flow mode renders from allFetchedBlocks via the virtualized canvas;
+  // DOM batch loading must not run underneath it.
+  if (STATE.layoutMode === 'flow') {
+    clearInterval(STATE.loadIntervalId);
+    STATE.loadIntervalId = null;
+    return;
+  }
+
   STATE.isLoading = true;
 
   const isMobile = isMobileDevice();
@@ -461,6 +485,11 @@ function loadMoreBlocks() {
   });
 
   STATE.currentlyDisplayedBlocks += blocksToRender.length;
+
+  // Keep the grid coherent while batches stream in.
+  if (STATE.layoutMode === 'tile' && blocksToRender.length > 0) {
+    tileBlocks();
+  }
 
   if (isMobile && STATE.currentlyDisplayedBlocks > CONFIG.maxBlocks / 2) {
     cleanupOffscreenBlocks();

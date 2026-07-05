@@ -18,7 +18,13 @@ const CONFIG = {
   flowBlockWidth: 200,
   flowBlockMaxHeight: 300,
   flowRenderBuffer: isMobileDevice() ? 500 : 800,
-  version: '3.5.0' // Version increment for the block limit warning feature
+  flowBlockPadding: 5,
+  flowBorderWidth: 2,
+  flowTextFontSize: 16,
+  flowTextLineHeight: 20,
+  flowChannelFontSize: 24,
+  flowChannelLineHeight: 29,
+  version: '3.6.0' // Layout mode persistence + flow canvas polish + prioritized image loading
 };
 
 // Helper function to detect mobile devices
