@@ -1080,7 +1080,7 @@ function showAboutView() {
       <p>Visit <a href="https://are.na" target="_blank">are.na</a> to create an account.</p>
       <h2>Philosophy</h2>
       <p>Built with 0 productivity in mind: Are.na feels like a park to me, where you can wander around without much purpose but discover interesting content. Therefore, this project is also meant for casual exploration, with no productivity pressure.</p>
-      <p>Looking for instructions? Open <i>help</i> from the ✱ menu.</p>
+      <p>Looking for instructions? Open <i>help</i> from the ✶✶ menu.</p>
       <hr>
       <p>This project is <a href="https://github.com/l3ony2k/are.na-blocks-canvas" target="_blank">open source</a>. Contributions and feedback are welcome.</p>
     </div>
@@ -1118,7 +1118,7 @@ function showHelpView() {
       <ul>
         <li>Enter a channel slug and hit GO to load a channel</li>
         <li>Enter <b>@username</b> to browse someone's channels as blocks</li>
-        <li>The ✱ menu (top left) holds channel info, your history, login and more</li>
+        <li>The ✶✶ menu (top left) holds channel info, your history, login and more</li>
       </ul>
       <h2>Blocks</h2>
       <ul>
@@ -1134,9 +1134,9 @@ function showHelpView() {
       <h2>Surfing</h2>
       <ul>
         <li>In block details, <b>Connections</b> lists every channel the block lives in, open one to peek at it, it stacks on top so you never lose your place</li>
-        <li>The ✱ logo in any detail panel links directly to that content on are.na</li>
-        <li><b>random surf</b> in the ✱ menu picks a random block and follows a random connection</li>
-        <li><b>recently surfed</b> in the ✱ menu takes you back to where you have been</li>
+        <li>The ✶✶ logo in any detail panel links directly to that content on are.na</li>
+        <li><b>random surf</b> in the ✶✶ menu picks a random block and follows a random connection</li>
+        <li><b>recently surfed</b> in the ✶✶ menu takes you back to where you have been</li>
       </ul>
       <h2>Logging in</h2>
       <ul>
