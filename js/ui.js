@@ -45,8 +45,7 @@ function updateThemeToggleText(theme) {
   const moreThemeButton = document.getElementById("more-theme-button");
   themeToggle.textContent = theme === "system" ? "sys" : theme.toLowerCase();
   if (moreThemeButton) {
-    moreThemeButton.textContent =
-      theme === "system" ? "sys" : theme.toLowerCase();
+    moreThemeButton.textContent = theme === "system" ? "sys" : theme.toLowerCase();
   }
 }
 
@@ -123,8 +122,7 @@ function pushDetailView() {
   // Demote the current panel: park its ids in data attributes so the fresh
   // panel can own them, but leave its DOM and listeners completely alone.
   DETAIL_PANEL_IDS.forEach((id) => {
-    const element =
-      id === "detail-view" ? current : current.querySelector(`#${id}`);
+    const element = id === "detail-view" ? current : current.querySelector(`#${id}`);
     if (element) {
       element.dataset.detailId = id;
       element.removeAttribute("id");
@@ -228,8 +226,7 @@ function closeAllDetailViews() {
 }
 
 function formatRelativeTime(timestamp) {
-  const time =
-    typeof timestamp === "number" ? timestamp : new Date(timestamp).getTime();
+  const time = typeof timestamp === "number" ? timestamp : new Date(timestamp).getTime();
   if (!Number.isFinite(time)) {
     return "";
   }
@@ -242,14 +239,7 @@ function formatRelativeTime(timestamp) {
   return new Date(time).toLocaleDateString();
 }
 
-function addMetaItem(
-  label,
-  value,
-  linkHref,
-  isHTML = false,
-  valueClassName = "",
-  options = {},
-) {
+function addMetaItem(label, value, linkHref, isHTML = false, valueClassName = "", options = {}) {
   const metaContainer = document.getElementById("detail-view-meta");
   if (!value) return null;
   let item = document.createElement("div");
@@ -355,10 +345,7 @@ function setupConnectionsSection(item, requestToken) {
 async function populateConnectionsSection(slot, status, item, requestToken) {
   const per = CONFIG.connectionsPerPage;
   const isChannel = item.kind === "channel";
-  const fetchPage = (page) =>
-    isChannel
-      ? arenaAPI.getChannelConnectionsPage(item.slug || item.id, page, per)
-      : arenaAPI.getBlockConnectionsPage(item.id, page, per);
+  const fetchPage = (page) => (isChannel ? arenaAPI.getChannelConnectionsPage(item.slug || item.id, page, per) : arenaAPI.getBlockConnectionsPage(item.id, page, per));
 
   let firstPage;
   try {
@@ -541,9 +528,7 @@ function setupCommentsSection(block, requestToken) {
 
       const time = document.createElement("span");
       time.className = "comment-time";
-      time.textContent = comment.createdAt
-        ? formatRelativeTime(comment.createdAt)
-        : "";
+      time.textContent = comment.createdAt ? formatRelativeTime(comment.createdAt) : "";
 
       header.appendChild(author);
       header.appendChild(time);
@@ -569,11 +554,7 @@ function setupCommentsSection(block, requestToken) {
   async function loadPage(page) {
     pager.loading = true;
     try {
-      const result = await arenaAPI.getBlockCommentsPage(
-        block.id,
-        page,
-        CONFIG.commentsPerPage,
-      );
+      const result = await arenaAPI.getBlockCommentsPage(block.id, page, CONFIG.commentsPerPage);
       if (!isDetailTokenActive(requestToken) || !slot.isConnected) {
         return;
       }
@@ -682,18 +663,12 @@ function createSearchableList(options = {}) {
 
   function render() {
     const filter = search.value.trim().toLowerCase();
-    const filtered = filter
-      ? items.filter((item) =>
-          (item.keywords || item.label || "").toLowerCase().includes(filter),
-        )
-      : items;
+    const filtered = filter ? items.filter((item) => (item.keywords || item.label || "").toLowerCase().includes(filter)) : items;
 
     rowsContainer.replaceChildren();
 
     if (filtered.length === 0) {
-      showHint(
-        filter ? "no matches" : options.emptyText || "nothing here yet",
-      );
+      showHint(filter ? "no matches" : options.emptyText || "nothing here yet");
       return;
     }
 
@@ -744,11 +719,7 @@ function showConnectPickerPanel(item) {
   const titleElement = document.getElementById("detail-view-title");
   titleElement.textContent = "Connect to Channel";
   titleElement.title = "Connect to Channel";
-  document.getElementById("detail-view-arena-link").href =
-    item.arenaUrl ||
-    (isChannel
-      ? `https://www.are.na/channel/${item.slug}`
-      : `https://www.are.na/block/${item.id}`);
+  document.getElementById("detail-view-arena-link").href = item.arenaUrl || (isChannel ? `https://www.are.na/channel/${item.slug}` : `https://www.are.na/block/${item.id}`);
 
   const list = createSearchableList({
     placeholder: "search your channels...",
@@ -763,9 +734,7 @@ function showConnectPickerPanel(item) {
       if (!isDetailTokenActive(requestToken)) {
         return;
       }
-      const channels = (cache?.items || []).filter(
-        (ch) => !(isChannel && (ch.slug === item.slug || ch.id === item.id)),
-      );
+      const channels = (cache?.items || []).filter((ch) => !(isChannel && (ch.slug === item.slug || ch.id === item.id)));
       if (channels.length === 0) {
         list.setHint("no channels available");
         return;
@@ -774,13 +743,9 @@ function showConnectPickerPanel(item) {
         channels.map((channel) => ({
           label: channel.title || "Untitled Channel",
           labelClassName: getVisibilityClass(channel.visibility),
-          info:
-            channel.counts?.contents != null
-              ? `${channel.counts.contents} blocks`
-              : "",
+          info: channel.counts?.contents != null ? `${channel.counts.contents} blocks` : "",
           keywords: `${channel.title || ""} ${channel.slug || ""}`,
-          onSelect: (row) =>
-            connectItemToChannel(item, connectableType, channel, row),
+          onSelect: (row) => connectItemToChannel(item, connectableType, channel, row),
         })),
       );
     })
@@ -801,11 +766,7 @@ async function connectItemToChannel(item, connectableType, channel, row) {
   info.textContent = "connecting...";
 
   try {
-    const connection = await arenaAPI.createConnection(
-      item.id,
-      channel.id,
-      connectableType,
-    );
+    const connection = await arenaAPI.createConnection(item.id, channel.id, connectableType);
     closeDetailView();
     showToast({
       message: `Connected to "${channel.title || "channel"}"`,
@@ -827,8 +788,7 @@ async function connectItemToChannel(item, connectableType, channel, row) {
     info.textContent = originalInfo;
     if (String(error.message).includes("403")) {
       showToast({
-        message:
-          "Your token is read-only, create one with write scope to connect",
+        message: "Your token is read-only, create one with write scope to connect",
         seconds: 6,
       });
     } else {
@@ -901,10 +861,7 @@ function renderChannelDetailContent(channelData, followerCount, options = {}) {
 
   resetDetailPanels();
   detailTitle.textContent = options.title || channelData.title || "Channel";
-  arenaLink.href =
-    options.arenaUrl ||
-    channelData.arenaUrl ||
-    `https://www.are.na/channel/${channelData.slug}`;
+  arenaLink.href = options.arenaUrl || channelData.arenaUrl || `https://www.are.na/channel/${channelData.slug}`;
 
   const contentWrapper = document.createElement("div");
   contentWrapper.id = "channel-detail-container";
@@ -922,10 +879,7 @@ function renderChannelDetailContent(channelData, followerCount, options = {}) {
     textInfo.appendChild(description);
   }
 
-  if (
-    options.primaryActionLabel &&
-    typeof options.primaryAction === "function"
-  ) {
+  if (options.primaryActionLabel && typeof options.primaryAction === "function") {
     const actionButton = document.createElement("button");
     actionButton.id = "channel-goto-button";
     actionButton.className = "detail-action-button";
@@ -934,9 +888,7 @@ function renderChannelDetailContent(channelData, followerCount, options = {}) {
     textInfo.appendChild(actionButton);
   }
 
-  const coverVersion =
-    channelData.coverImageVersions?.display ||
-    channelData.coverImageVersions?.large;
+  const coverVersion = channelData.coverImageVersions?.display || channelData.coverImageVersions?.large;
   if (coverVersion?.url) {
     const coverWrapper = document.createElement("div");
     coverWrapper.id = "channel-cover-wrapper";
@@ -958,64 +910,32 @@ function renderChannelDetailContent(channelData, followerCount, options = {}) {
   // block detail views. The author link browses that user inside the app.
   if (channelData.owner?.name) {
     if (channelData.owner.type === "User" && channelData.owner.slug) {
-      addMetaItem(
-        "Author",
-        channelData.owner.name,
-        `#@${channelData.owner.slug}`,
-        false,
-        "",
-        { internal: true },
-      );
+      addMetaItem("Author", channelData.owner.name, `#@${channelData.owner.slug}`, false, "", { internal: true });
     } else {
-      const ownerUrl = channelData.owner.slug
-        ? `https://www.are.na/${channelData.owner.slug}`
-        : null;
+      const ownerUrl = channelData.owner.slug ? `https://www.are.na/${channelData.owner.slug}` : null;
       addMetaItem("Author", channelData.owner.name, ownerUrl);
     }
   }
   addMetaItem("Blocks", String(channelData.counts?.contents ?? 0));
   addMetaItem("Followers", String(followerCount ?? 0));
   if (channelData.createdAt) {
-    addMetaItem(
-      "Created",
-      new Date(channelData.createdAt).toLocaleDateString(),
-    );
+    addMetaItem("Created", new Date(channelData.createdAt).toLocaleDateString());
   }
   if (channelData.updatedAt) {
-    addMetaItem(
-      "Updated",
-      new Date(channelData.updatedAt).toLocaleDateString(),
-    );
+    addMetaItem("Updated", new Date(channelData.updatedAt).toLocaleDateString());
   }
-  addMetaItem(
-    "Visibility",
-    getChannelVisibilityLabel(channelData.visibility),
-    null,
-    false,
-    getVisibilityClass(channelData.visibility),
-  );
+  addMetaItem("Visibility", getChannelVisibilityLabel(channelData.visibility), null, false, getVisibilityClass(channelData.visibility));
   if (channelData.state) {
     addMetaItem("State", channelData.state);
   }
 
   if (options.contextItem?.connection?.connectedAt) {
-    addMetaItem(
-      "Connected At",
-      new Date(options.contextItem.connection.connectedAt).toLocaleString(),
-      null,
-    );
+    addMetaItem("Connected At", new Date(options.contextItem.connection.connectedAt).toLocaleString(), null);
   }
 
   if (options.contextItem?.connection?.connectedBy?.name) {
-    const connectedByUrl = options.contextItem.connection.connectedBy.slug
-      ? `https://www.are.na/${options.contextItem.connection.connectedBy.slug}`
-      : null;
-    addMetaItem(
-      "Connected By",
-      options.contextItem.connection.connectedBy.name,
-      connectedByUrl,
-      false,
-    );
+    const connectedByUrl = options.contextItem.connection.connectedBy.slug ? `https://www.are.na/${options.contextItem.connection.connectedBy.slug}` : null;
+    addMetaItem("Connected By", options.contextItem.connection.connectedBy.name, connectedByUrl, false);
   }
 }
 
@@ -1027,15 +947,11 @@ async function showChannelDetailBySlug(slug, options = {}) {
   const requestToken = beginDetailRequest();
   const detailContent = document.getElementById("detail-view-content");
   resetDetailPanels();
-  detailContent.innerHTML =
-    '<div style="padding: 20px;">Loading channel details...</div>';
+  detailContent.innerHTML = '<div style="padding: 20px;">Loading channel details...</div>';
   document.getElementById("detail-view").style.display = "flex";
 
   try {
-    const [channelResult, followerResult] = await Promise.allSettled([
-      arenaAPI.getChannel(slug),
-      arenaAPI.getChannelFollowerCount(slug),
-    ]);
+    const [channelResult, followerResult] = await Promise.allSettled([arenaAPI.getChannel(slug), arenaAPI.getChannelFollowerCount(slug)]);
 
     if (!isDetailTokenActive(requestToken)) {
       return;
@@ -1045,16 +961,14 @@ async function showChannelDetailBySlug(slug, options = {}) {
       throw channelResult.reason;
     }
 
-    const followerCount =
-      followerResult.status === "fulfilled" ? followerResult.value : 0;
+    const followerCount = followerResult.status === "fulfilled" ? followerResult.value : 0;
     renderChannelDetailContent(channelResult.value, followerCount, options);
     setupConnectionsSection(channelResult.value, requestToken);
     setupConnectSection(channelResult.value, requestToken);
   } catch (error) {
     console.error("Error fetching channel details:", error);
     if (isDetailTokenActive(requestToken)) {
-      detailContent.innerHTML =
-        '<div style="padding: 20px;">Failed to load channel details</div>';
+      detailContent.innerHTML = '<div style="padding: 20px;">Failed to load channel details</div>';
     }
   }
 }
@@ -1079,9 +993,8 @@ function showAboutView() {
       <p>Are.na is an interest-based social network where users can create and join various channels to share and discover content.</p>
       <p>Visit <a href="https://are.na" target="_blank">are.na</a> to create an account.</p>
       <h2>Philosophy</h2>
-      <p>Built with 0 productivity in mind: Are.na feels like a park to me, where you can wander around without much purpose but discover interesting content. Therefore, this project is also meant for casual exploration, with no productivity pressure.</p>
+      <p>Built with 0 productivity in mind: Are.na feels like a park to me, where you can wander around without much purpose but discover interesting content. Therefore, this project is also meant for casual exploration.</p>
       <p>Looking for instructions? Open <i>help</i> from the ✶✶ menu.</p>
-      <hr>
       <p>This project is <a href="https://github.com/l3ony2k/are.na-blocks-canvas" target="_blank">open source</a>. Contributions and feedback are welcome.</p>
     </div>
   `;
@@ -1091,7 +1004,7 @@ function showAboutView() {
       <strong>Version:</strong> ${CONFIG.version}
     </div>
     <div class="meta-item">
-      <strong>Created by</strong> <a href="https://www.are.na/lok" target="_blank">Lok ✶✶</a> with love
+      <strong>Created by</strong> <a href="https://www.are.na/lok" target="_blank">lok ✶</a> with love
     </div>
   `;
 
@@ -1123,7 +1036,7 @@ function showHelpView() {
       <h2>Blocks</h2>
       <ul>
         <li>Drag blocks to move them, scroll on a block to rotate it</li>
-        <li>Double click (or double tap) a block to open its details</li>
+        <li>Double click a block to open its details</li>
         <li>Click a channel block to jump into that channel</li>
       </ul>
       <h2>Layout modes</h2>
@@ -1133,8 +1046,8 @@ function showHelpView() {
       </ul>
       <h2>Surfing</h2>
       <ul>
-        <li>In block details, <b>Connections</b> lists every channel the block lives in, open one to peek at it, it stacks on top so you never lose your place</li>
-        <li>The ✶✶ logo in any detail panel links directly to that content on are.na</li>
+        <li>In block details, <b>Connections</b> lists every channel the block lives in, open one to peek at it</li>
+        <li>The ✶✶ logo in any detail panel links to that content on are.na</li>
         <li><b>random surf</b> in the ✶✶ menu picks a random block and follows a random connection</li>
         <li><b>recently surfed</b> in the ✶✶ menu takes you back to where you have been</li>
       </ul>
@@ -1142,14 +1055,13 @@ function showHelpView() {
       <ul>
         <li>Log in with an Are.na personal access token to see your own channels when you click the search box</li>
         <li>Choose <b>write</b> scope when creating the token to connect blocks to your channels right from their details</li>
-        <li>Green means public, red means private, plain means closed</li>
       </ul>
     </div>
   `;
 
   detailMeta.innerHTML = `
     <div class="meta-item">
-      <strong>Tip:</strong> everything here is reversible, wander freely
+      <strong>Tip:</strong> just wander freely and have fun.
     </div>
   `;
 
@@ -1215,16 +1127,11 @@ async function showUserDetail(userSlug) {
     if (profile.createdAt) {
       addMetaItem("Joined", new Date(profile.createdAt).toLocaleDateString());
     }
-    addMetaItem(
-      "Profile",
-      `are.na/${profile.slug || userSlug}`,
-      `https://www.are.na/${profile.slug || userSlug}`,
-    );
+    addMetaItem("Profile", `are.na/${profile.slug || userSlug}`, `https://www.are.na/${profile.slug || userSlug}`);
   } catch (error) {
     console.error("Error fetching user details:", error);
     if (isDetailTokenActive(requestToken)) {
-      detailContent.innerHTML =
-        '<div style="padding: 20px;">Failed to load user details</div>';
+      detailContent.innerHTML = '<div style="padding: 20px;">Failed to load user details</div>';
     }
   }
 }
@@ -1274,17 +1181,12 @@ async function showHistoryView() {
 function initHeaderBar() {
   const slugInput = document.getElementById("channel-slug-input");
   slugInput.value = STATE.channelSlugs[0];
-  document
-    .getElementById("goto-button")
-    .addEventListener("click", handleGoButtonClick);
+  document.getElementById("goto-button").addEventListener("click", handleGoButtonClick);
   slugInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       // An arrow-key-highlighted dropdown row wins over the typed text.
-      const activeChannel =
-        typeof getActiveDropdownChannel === "function"
-          ? getActiveDropdownChannel()
-          : null;
+      const activeChannel = typeof getActiveDropdownChannel === "function" ? getActiveDropdownChannel() : null;
       if (activeChannel) {
         hideChannelDropdown();
         slugInput.blur();
@@ -1362,8 +1264,7 @@ function getSavedLayoutMode() {
 }
 
 function cycleLayoutMode() {
-  const nextIndex =
-    (LAYOUT_MODES.indexOf(STATE.layoutMode) + 1) % LAYOUT_MODES.length;
+  const nextIndex = (LAYOUT_MODES.indexOf(STATE.layoutMode) + 1) % LAYOUT_MODES.length;
   setLayoutMode(LAYOUT_MODES[nextIndex]);
 }
 
@@ -1508,10 +1409,7 @@ function tileBlocks() {
 
     // 确保不会超出边界
     x = Math.max(0, Math.min(availableWidth, x + randomOffsetX));
-    y = Math.max(
-      headerHeight,
-      Math.min(window.innerHeight - blockHeight, y + randomOffsetY),
-    );
+    y = Math.max(headerHeight, Math.min(window.innerHeight - blockHeight, y + randomOffsetY));
 
     block.style.transform = `translate(${x}px, ${y}px) rotate(0deg)`;
 
@@ -1568,19 +1466,13 @@ function shuffleBlocks() {
 }
 
 function getFlowGapPixels() {
-  const rootFontSize =
-    parseFloat(window.getComputedStyle(document.documentElement).fontSize) ||
-    16;
+  const rootFontSize = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
   return CONFIG.flowGapRem * rootFontSize;
 }
 
 function getOrderedFlowBlocks() {
-  const blockMap = new Map(
-    STATE.allFetchedBlocks.map((block) => [String(block.id), block]),
-  );
-  const orderedBlocks = STATE.cachedBlockOrder
-    .map((id) => blockMap.get(String(id)))
-    .filter(Boolean);
+  const blockMap = new Map(STATE.allFetchedBlocks.map((block) => [String(block.id), block]));
+  const orderedBlocks = STATE.cachedBlockOrder.map((id) => blockMap.get(String(id))).filter(Boolean);
 
   if (orderedBlocks.length > 0) {
     return orderedBlocks;
@@ -1604,49 +1496,24 @@ function estimateFlowBlockHeight(block) {
 
   const versions = block.imageVersions;
   const measured = STATE.flowImageMeasurements[String(block.id)];
-  const imageVersion =
-    versions?.original ||
-    versions?.large ||
-    versions?.display ||
-    versions?.preview ||
-    versions?.thumb;
+  const imageVersion = versions?.original || versions?.large || versions?.display || versions?.preview || versions?.thumb;
   const sourceWidth = measured?.width || versions?.width || imageVersion?.width;
-  const sourceHeight =
-    measured?.height || versions?.height || imageVersion?.height;
+  const sourceHeight = measured?.height || versions?.height || imageVersion?.height;
 
   if (sourceWidth && sourceHeight) {
-    return Math.min(
-      maxHeight,
-      Math.max(
-        80,
-        (sourceHeight / sourceWidth) * contentWidth +
-          padding * 2 +
-          borderWidth * 2,
-      ),
-    );
+    return Math.min(maxHeight, Math.max(80, (sourceHeight / sourceWidth) * contentWidth + padding * 2 + borderWidth * 2));
   }
 
   if (versions) {
-    return Math.min(
-      maxHeight,
-      Math.max(120, contentWidth * 0.75 + padding * 2 + borderWidth * 2),
-    );
+    return Math.min(maxHeight, Math.max(120, contentWidth * 0.75 + padding * 2 + borderWidth * 2));
   }
 
   const text = block.textPlain || block.title || block.descriptionPlain || "";
   if (block.kind === "text" || text) {
     // ~19 monospace chars fit per 186px content line; CJK-heavy text gets
     // fewer, but overly tall blocks just show more before the ellipsis.
-    const approxLines = Math.ceil(
-      String(text).replace(/<[^>]+>/g, "").length / 19,
-    );
-    return Math.min(
-      maxHeight,
-      Math.max(
-        90,
-        approxLines * CONFIG.flowTextLineHeight + padding * 2 + borderWidth * 2,
-      ),
-    );
+    const approxLines = Math.ceil(String(text).replace(/<[^>]+>/g, "").length / 19);
+    return Math.min(maxHeight, Math.max(90, approxLines * CONFIG.flowTextLineHeight + padding * 2 + borderWidth * 2));
   }
 
   return 180;
@@ -1748,10 +1615,7 @@ function clearFlowInstances() {
     return;
   }
 
-  const elements = [
-    ...Array.from(STATE.flow.visible?.values() || []),
-    ...(STATE.flow.pool || []),
-  ];
+  const elements = [...Array.from(STATE.flow.visible?.values() || []), ...(STATE.flow.pool || [])];
 
   elements.forEach((element) => {
     if (element._imageObserver) {
@@ -1789,14 +1653,12 @@ function removeFlowCanvas() {
   }
 }
 
-const FLOW_FONT_STACK =
-  'ui-monospace, Menlo, Monaco, "Cascadia Mono", monospace';
+const FLOW_FONT_STACK = 'ui-monospace, Menlo, Monaco, "Cascadia Mono", monospace';
 
 // Sample theme colors once per render pass instead of per block per frame.
 function getFlowCanvasTheme() {
   const rootStyle = getComputedStyle(document.documentElement);
-  const pick = (name, fallback) =>
-    (rootStyle.getPropertyValue(name) || "").trim() || fallback;
+  const pick = (name, fallback) => (rootStyle.getPropertyValue(name) || "").trim() || fallback;
 
   return {
     blockBg: pick("--block-bg", "#fff"),
@@ -1882,13 +1744,7 @@ function getCanvasText(block) {
       temp.innerHTML = html;
       text = temp.textContent.trim();
     } else {
-      text =
-        block.title ||
-        block.source?.title ||
-        block.attachment?.filename ||
-        block.embed?.title ||
-        block.rawType ||
-        "Block";
+      text = block.title || block.source?.title || block.attachment?.filename || block.embed?.title || block.rawType || "Block";
     }
   }
 
@@ -1905,12 +1761,7 @@ function getFlowImage(block) {
   // Flow blocks render at ~200 CSS px wide; a small/medium version covers
   // the whole 0.5-2x zoom range. Swapping to sharper versions mid-zoom
   // caused visible reload jank, so we deliberately don't.
-  const version =
-    versions.preview ||
-    versions.thumb ||
-    versions.display ||
-    versions.large ||
-    versions.original;
+  const version = versions.preview || versions.thumb || versions.display || versions.large || versions.original;
   if (!version?.url) {
     return null;
   }
@@ -1925,11 +1776,7 @@ function getFlowImage(block) {
   image.onload = () => {
     entry.loaded = true;
     if (image.naturalWidth && image.naturalHeight) {
-      updateFlowImageMeasurement(
-        block.id,
-        image.naturalWidth,
-        image.naturalHeight,
-      );
+      updateFlowImageMeasurement(block.id, image.naturalWidth, image.naturalHeight);
     }
     requestFlowRender();
   };
@@ -1959,10 +1806,7 @@ function wrapCanvasText(ctx, text, maxWidth, maxLines) {
     return [];
   }
 
-  const tokens =
-    source.match(
-      /[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]|[^\s\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+|\s/g,
-    ) || [];
+  const tokens = source.match(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]|[^\s\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+|\s/g) || [];
   const lines = [];
   let line = "";
   let truncated = false;
@@ -2027,15 +1871,7 @@ function wrapCanvasText(ctx, text, maxWidth, maxLines) {
 
 // Mirrors the DOM channel-block style: small header label with a large,
 // centered, wrapped title below it.
-function drawFlowChannelBlock(
-  ctx,
-  block,
-  theme,
-  contentX,
-  contentY,
-  contentWidth,
-  contentHeight,
-) {
+function drawFlowChannelBlock(ctx, block, theme, contentX, contentY, contentWidth, contentHeight) {
   const headerFontSize = 12;
   const headerLineHeight = headerFontSize + 4;
   const titleFontSize = CONFIG.flowChannelFontSize;
@@ -2048,19 +1884,10 @@ function drawFlowChannelBlock(
   ctx.textAlign = "center";
 
   ctx.font = `${titleFontSize}px ${FLOW_FONT_STACK}`;
-  const maxTitleLines = Math.max(
-    1,
-    Math.floor((contentHeight - headerLineHeight - groupGap) / titleLineHeight),
-  );
-  const titleLines = wrapCanvasText(
-    ctx,
-    block.title || "Untitled Channel",
-    contentWidth,
-    maxTitleLines,
-  );
+  const maxTitleLines = Math.max(1, Math.floor((contentHeight - headerLineHeight - groupGap) / titleLineHeight));
+  const titleLines = wrapCanvasText(ctx, block.title || "Untitled Channel", contentWidth, maxTitleLines);
 
-  const groupHeight =
-    headerLineHeight + groupGap + titleLines.length * titleLineHeight;
+  const groupHeight = headerLineHeight + groupGap + titleLines.length * titleLineHeight;
   let cursorY = contentY + Math.max(0, (contentHeight - groupHeight) / 2);
 
   // Header: are.na glyph (13x8 like the DOM variant) + label, centered as
@@ -2089,11 +1916,7 @@ function drawFlowChannelBlock(
   ctx.font = `${titleFontSize}px ${FLOW_FONT_STACK}`;
   const titleOffset = (titleLineHeight - titleFontSize) / 2;
   titleLines.forEach((titleLine, index) => {
-    ctx.fillText(
-      titleLine,
-      centerX,
-      cursorY + index * titleLineHeight + titleOffset,
-    );
+    ctx.fillText(titleLine, centerX, cursorY + index * titleLineHeight + titleOffset);
   });
 }
 
@@ -2119,12 +1942,7 @@ function drawFlowCanvasBlock(ctx, placement, theme, shadow) {
   }
   ctx.lineWidth = borderWidth;
   ctx.beginPath();
-  ctx.rect(
-    borderWidth / 2,
-    borderWidth / 2,
-    width - borderWidth,
-    height - borderWidth,
-  );
+  ctx.rect(borderWidth / 2, borderWidth / 2, width - borderWidth, height - borderWidth);
   // Same drop shadow as DOM blocks (3px 3px 5px rgba(0,0,0,0.3)); shadow
   // params are device-space, so they arrive pre-scaled per render pass.
   // Only the card fill casts it, contents draw shadow-free.
@@ -2146,15 +1964,7 @@ function drawFlowCanvasBlock(ctx, placement, theme, shadow) {
   ctx.textBaseline = "top";
 
   if (block.kind === "channel") {
-    drawFlowChannelBlock(
-      ctx,
-      block,
-      theme,
-      contentX,
-      contentY,
-      contentWidth,
-      contentHeight,
-    );
+    drawFlowChannelBlock(ctx, block, theme, contentX, contentY, contentWidth, contentHeight);
     ctx.restore();
     return;
   }
@@ -2163,29 +1973,16 @@ function drawFlowCanvasBlock(ctx, placement, theme, shadow) {
   if (imageEntry && !imageEntry.failed) {
     if (imageEntry.loaded) {
       const image = imageEntry.image;
-      const scale = Math.min(
-        contentWidth / image.naturalWidth,
-        contentHeight / image.naturalHeight,
-      );
+      const scale = Math.min(contentWidth / image.naturalWidth, contentHeight / image.naturalHeight);
       const drawWidth = image.naturalWidth * scale;
       const drawHeight = image.naturalHeight * scale;
-      ctx.drawImage(
-        image,
-        contentX + (contentWidth - drawWidth) / 2,
-        contentY + (contentHeight - drawHeight) / 2,
-        drawWidth,
-        drawHeight,
-      );
+      ctx.drawImage(image, contentX + (contentWidth - drawWidth) / 2, contentY + (contentHeight - drawHeight) / 2, drawWidth, drawHeight);
     } else {
       ctx.fillStyle = theme.textColor;
       ctx.globalAlpha = 0.7;
       ctx.font = `${CONFIG.flowTextFontSize}px ${FLOW_FONT_STACK}`;
       ctx.textAlign = "center";
-      ctx.fillText(
-        "Loading image...",
-        contentX + contentWidth / 2,
-        contentY + Math.max(0, contentHeight / 2 - CONFIG.flowTextFontSize / 2),
-      );
+      ctx.fillText("Loading image...", contentX + contentWidth / 2, contentY + Math.max(0, contentHeight / 2 - CONFIG.flowTextFontSize / 2));
       ctx.globalAlpha = 1;
     }
     ctx.restore();
@@ -2197,19 +1994,10 @@ function drawFlowCanvasBlock(ctx, placement, theme, shadow) {
   ctx.textAlign = "left";
   const lineHeight = CONFIG.flowTextLineHeight;
   const maxLines = Math.max(1, Math.floor(contentHeight / lineHeight));
-  const lines = wrapCanvasText(
-    ctx,
-    getCanvasText(block),
-    contentWidth,
-    maxLines,
-  );
+  const lines = wrapCanvasText(ctx, getCanvasText(block), contentWidth, maxLines);
   const lineOffset = (lineHeight - CONFIG.flowTextFontSize) / 2;
   lines.forEach((textLine, index) => {
-    ctx.fillText(
-      textLine,
-      contentX,
-      contentY + index * lineHeight + lineOffset,
-    );
+    ctx.fillText(textLine, contentX, contentY + index * lineHeight + lineOffset);
   });
 
   ctx.restore();
@@ -2273,8 +2061,7 @@ function getVisibleFlowPlacements() {
   };
 
   const minTileX = Math.floor((-flow.offsetX - buffer) / pattern.width) - 1;
-  const maxTileX =
-    Math.ceil((-flow.offsetX + worldWidth + buffer) / pattern.width) + 1;
+  const maxTileX = Math.ceil((-flow.offsetX + worldWidth + buffer) / pattern.width) + 1;
   const visibleKeys = new Set();
   const placements = [];
 
@@ -2285,22 +2072,16 @@ function getVisibleFlowPlacements() {
       }
 
       const screenX = column.x + tileX * pattern.width + flow.offsetX;
-      if (
-        screenX + pattern.blockWidth < viewport.left ||
-        screenX > viewport.right
-      ) {
+      if (screenX + pattern.blockWidth < viewport.left || screenX > viewport.right) {
         return;
       }
 
-      const minCycleY =
-        Math.floor((-flow.offsetY - buffer) / column.height) - 1;
-      const maxCycleY =
-        Math.ceil((-flow.offsetY + worldHeight + buffer) / column.height) + 1;
+      const minCycleY = Math.floor((-flow.offsetY - buffer) / column.height) - 1;
+      const maxCycleY = Math.ceil((-flow.offsetY + worldHeight + buffer) / column.height) + 1;
 
       for (let cycleY = minCycleY; cycleY <= maxCycleY; cycleY += 1) {
         const localTop = viewport.top - flow.offsetY - cycleY * column.height;
-        const localBottom =
-          viewport.bottom - flow.offsetY - cycleY * column.height;
+        const localBottom = viewport.bottom - flow.offsetY - cycleY * column.height;
         const startIndex = findFirstVisibleFlowItem(column.items, localTop);
         const endIndex = findPastVisibleFlowItem(column.items, localBottom);
 
@@ -2308,10 +2089,7 @@ function getVisibleFlowPlacements() {
           const item = column.items[itemIndex];
           const screenY = item.y + cycleY * column.height + flow.offsetY;
 
-          if (
-            screenY + item.height < viewport.top ||
-            screenY > viewport.bottom
-          ) {
+          if (screenY + item.height < viewport.top || screenY > viewport.bottom) {
             continue;
           }
 
@@ -2457,12 +2235,7 @@ function loadSavedFlowOffset() {
     const raw = localStorage.getItem(flowOffsetStorageKey());
     const parsed = raw ? JSON.parse(raw) : null;
     if (parsed && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) {
-      const zoom = Number.isFinite(parsed.zoom)
-        ? Math.min(
-            CONFIG.flowZoomMax,
-            Math.max(CONFIG.flowZoomMin, parsed.zoom),
-          )
-        : 1;
+      const zoom = Number.isFinite(parsed.zoom) ? Math.min(CONFIG.flowZoomMax, Math.max(CONFIG.flowZoomMin, parsed.zoom)) : 1;
       return { x: parsed.x, y: parsed.y, zoom };
     }
   } catch (error) {
@@ -2512,10 +2285,7 @@ function setFlowZoom(newZoom, clientX, clientY) {
     return;
   }
 
-  const zoom = Math.min(
-    CONFIG.flowZoomMax,
-    Math.max(CONFIG.flowZoomMin, newZoom),
-  );
+  const zoom = Math.min(CONFIG.flowZoomMax, Math.max(CONFIG.flowZoomMin, newZoom));
   if (zoom === flow.zoom) {
     return;
   }
@@ -2551,8 +2321,7 @@ function handleFlowPointerDown(event) {
     return;
   }
 
-  const ignoredSelectors =
-    "#header-bar, .detail-view, .modal-dialog, #app-toast";
+  const ignoredSelectors = "#header-bar, .detail-view, .modal-dialog, #app-toast";
   if (event.target.closest(ignoredSelectors)) {
     return;
   }
@@ -2568,10 +2337,7 @@ function handleFlowPointerDown(event) {
     if (flow.activePointers.size === 2) {
       const points = Array.from(flow.activePointers.values());
       flow.pinch = {
-        startDistance: Math.hypot(
-          points[0].x - points[1].x,
-          points[0].y - points[1].y,
-        ),
+        startDistance: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y),
         startZoom: flow.zoom,
         lastMidX: (points[0].x + points[1].x) / 2,
         lastMidY: (points[0].y + points[1].y) / 2,
@@ -2613,19 +2379,12 @@ function handleFlowPointerMove(event) {
     });
     if (flow.activePointers.size >= 2) {
       const points = Array.from(flow.activePointers.values());
-      const distance = Math.hypot(
-        points[0].x - points[1].x,
-        points[0].y - points[1].y,
-      );
+      const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
       const midX = (points[0].x + points[1].x) / 2;
       const midY = (points[0].y + points[1].y) / 2;
 
       if (flow.pinch.startDistance > 0) {
-        setFlowZoom(
-          flow.pinch.startZoom * (distance / flow.pinch.startDistance),
-          midX,
-          midY,
-        );
+        setFlowZoom(flow.pinch.startZoom * (distance / flow.pinch.startDistance), midX, midY);
       }
       moveFlowViewport(flow.pinch.lastMidX - midX, flow.pinch.lastMidY - midY);
       flow.pinch.lastMidX = midX;
@@ -2680,12 +2439,7 @@ function getFlowCanvasBlockAt(clientX, clientY) {
   const y = (clientY - 35) / zoom;
   for (let index = STATE.flow.hitRegions.length - 1; index >= 0; index -= 1) {
     const region = STATE.flow.hitRegions[index];
-    if (
-      x >= region.x &&
-      x <= region.x + region.width &&
-      y >= region.y &&
-      y <= region.y + region.height
-    ) {
+    if (x >= region.x && x <= region.x + region.width && y >= region.y && y <= region.y + region.height) {
       return region.block;
     }
   }
@@ -2727,10 +2481,7 @@ function handleFlowCanvasPointerUp(event) {
   }
 
   const now = Date.now();
-  const isDoubleTap =
-    now - (flow.lastTapTime || 0) < CONFIG.doubleClickDelay &&
-    Math.hypot(event.clientX - flow.lastTapX, event.clientY - flow.lastTapY) <
-      30;
+  const isDoubleTap = now - (flow.lastTapTime || 0) < CONFIG.doubleClickDelay && Math.hypot(event.clientX - flow.lastTapX, event.clientY - flow.lastTapY) < 30;
 
   if (isDoubleTap) {
     flow.lastTapTime = 0;
@@ -2846,14 +2597,8 @@ function exitFlowMode(renderBlocksAfter = true) {
   }
   if (STATE.flow.canvas) {
     STATE.flow.canvas.removeEventListener("wheel", handleFlowWheel);
-    STATE.flow.canvas.removeEventListener(
-      "dblclick",
-      handleFlowCanvasDoubleClick,
-    );
-    STATE.flow.canvas.removeEventListener(
-      "pointerup",
-      handleFlowCanvasPointerUp,
-    );
+    STATE.flow.canvas.removeEventListener("dblclick", handleFlowCanvasDoubleClick);
+    STATE.flow.canvas.removeEventListener("pointerup", handleFlowCanvasPointerUp);
   }
   document.removeEventListener("pointerdown", handleFlowPointerDown);
   document.removeEventListener("pointermove", handleFlowPointerMove);
@@ -2875,28 +2620,16 @@ function renderInitialBlocksForCurrentChannel() {
   STATE.visibleBlockIds = new Set();
 
   const maxBlocks = isMobileDevice()
-    ? Math.min(
-        CONFIG.blocksPerLoad,
-        STATE.cachedBlockOrder.length || STATE.allFetchedBlocks.length,
-      )
-    : Math.min(
-        CONFIG.maxBlocks || STATE.allFetchedBlocks.length,
-        STATE.cachedBlockOrder.length || STATE.allFetchedBlocks.length,
-      );
+    ? Math.min(CONFIG.blocksPerLoad, STATE.cachedBlockOrder.length || STATE.allFetchedBlocks.length)
+    : Math.min(CONFIG.maxBlocks || STATE.allFetchedBlocks.length, STATE.cachedBlockOrder.length || STATE.allFetchedBlocks.length);
 
-  const orderedIds =
-    STATE.cachedBlockOrder.length > 0
-      ? STATE.cachedBlockOrder
-      : STATE.allFetchedBlocks.map((block) => String(block.id));
+  const orderedIds = STATE.cachedBlockOrder.length > 0 ? STATE.cachedBlockOrder : STATE.allFetchedBlocks.map((block) => String(block.id));
 
   const blocksToRender = orderedIds.slice(0, maxBlocks);
   renderBlockBatch(blocksToRender);
   STATE.currentlyDisplayedBlocks = blocksToRender.length;
 
-  if (
-    isMobileDevice() &&
-    STATE.currentlyDisplayedBlocks < STATE.allFetchedBlocks.length
-  ) {
+  if (isMobileDevice() && STATE.currentlyDisplayedBlocks < STATE.allFetchedBlocks.length) {
     STATE.loadIntervalId = setInterval(loadMoreBlocks, CONFIG.loadInterval);
   }
 }
@@ -2957,14 +2690,12 @@ moreButton.addEventListener("click", (e) => {
 // Link more menu buttons to original buttons' functionality
 moreTileButton.addEventListener("click", () => {
   document.getElementById("tile-button").click();
-  moreTileButton.textContent =
-    document.getElementById("tile-button").textContent;
+  moreTileButton.textContent = document.getElementById("tile-button").textContent;
 });
 
 moreThemeButton.addEventListener("click", () => {
   document.getElementById("theme-toggle").click();
-  moreThemeButton.textContent =
-    document.getElementById("theme-toggle").textContent;
+  moreThemeButton.textContent = document.getElementById("theme-toggle").textContent;
 });
 
 const savedTheme = localStorage.getItem("theme") || "system";
@@ -2978,9 +2709,7 @@ function updatePWAThemeColors(theme) {
   // Get the current effective theme
   if (theme === "system") {
     // Check if system is in dark mode
-    const isDarkMode = window.matchMedia(
-      "(prefers-color-scheme: dark)",
-    ).matches;
+    const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
     themeColorValue = isDarkMode ? "#1A1A1A" : "#f0f0f0";
   } else if (theme === "dark") {
     themeColorValue = "#1A1A1A"; // Dark theme header color
@@ -2998,11 +2727,7 @@ function updatePWAThemeColors(theme) {
   const iosStatusBarMeta = document.getElementById("ios-status-bar-meta");
   if (iosStatusBarMeta) {
     // For dark theme use black-translucent, for light use default
-    if (
-      theme === "dark" ||
-      (theme === "system" &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches)
-    ) {
+    if (theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
       iosStatusBarMeta.setAttribute("content", "black-translucent");
     } else {
       iosStatusBarMeta.setAttribute("content", "default");
@@ -3028,15 +2753,13 @@ document.addEventListener("DOMContentLoaded", () => {
   updatePWAThemeColors(savedTheme);
 
   // Also listen for system color scheme changes
-  window
-    .matchMedia("(prefers-color-scheme: dark)")
-    .addEventListener("change", () => {
-      const currentTheme = document.documentElement.getAttribute("data-theme");
-      if (currentTheme === "system") {
-        updatePWAThemeColors("system");
-        if (STATE.layoutMode === "flow") {
-          requestFlowRender();
-        }
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    if (currentTheme === "system") {
+      updatePWAThemeColors("system");
+      if (STATE.layoutMode === "flow") {
+        requestFlowRender();
       }
-    });
+    }
+  });
 });
