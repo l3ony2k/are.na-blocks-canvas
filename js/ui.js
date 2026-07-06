@@ -1584,9 +1584,9 @@ function buildFlowPattern() {
     columns[column].height += height + gap;
   });
 
-  columns.forEach((column) => {
-    column.height += gap;
-  });
+  // Each item already contributes a trailing gap above (height + gap), so the
+  // last item's trailing gap is exactly the seam between one vertical cycle and
+  // the next. Adding another gap here would double the gap at that seam.
 
   return {
     gap,
