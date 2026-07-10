@@ -112,6 +112,12 @@ blockquote {
     touch-action: none;
 }
 
+body.flow-dragging,
+body.flow-dragging #flow-surface,
+body.flow-dragging #flow-canvas {
+    cursor: grabbing !important;
+}
+
 .flow-mode .block.flow-block {
     top: 0;
     cursor: pointer;

@@ -2306,14 +2306,25 @@ function handleFlowWheel(event) {
 
   event.preventDefault();
 
-  // Trackpad pinches arrive as ctrl+wheel; cmd/ctrl+scroll zooms too.
-  if (event.ctrlKey || event.metaKey) {
-    const factor = Math.exp(-event.deltaY * 0.002);
+  let dx = event.deltaX;
+  let dy = event.deltaY;
+
+  // Trackpad pinches arrive as ctrl+wheel; cmd/ctrl/alt+scroll zooms too.
+  if (event.ctrlKey || event.metaKey || event.altKey) {
+    const factor = Math.exp(-dy * 0.002);
     setFlowZoom((STATE.flow?.zoom || 1) * factor, event.clientX, event.clientY);
     return;
   }
 
-  moveFlowViewport(event.deltaX, event.deltaY);
+  if (event.shiftKey) {
+    // Swap deltaX and deltaY if the scrolling is primarily vertical
+    if (Math.abs(dy) > Math.abs(dx)) {
+      dx = dy;
+      dy = 0;
+    }
+  }
+
+  moveFlowViewport(dx, dy);
 }
 
 function handleFlowPointerDown(event) {
@@ -2349,8 +2360,14 @@ function handleFlowPointerDown(event) {
     }
   }
 
-  if (event.pointerType !== "touch" && event.button !== 0) {
+  // Accept touch, left click (button 0), and middle click (button 1)
+  if (event.pointerType !== "touch" && event.button !== 0 && event.button !== 1) {
     return;
+  }
+
+  // Prevent default middle-click scroll behavior
+  if (event.button === 1) {
+    event.preventDefault();
   }
 
   flow.isDragging = true;
