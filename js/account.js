@@ -40,6 +40,7 @@ function clearAuth() {
   STATE.currentUser = null;
   STATE.myChannels = null;
   STATE.followingChannels = null;
+  STATE.flowImageMeasurements = {};
   try {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);

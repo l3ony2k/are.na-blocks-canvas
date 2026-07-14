@@ -451,7 +451,7 @@ function appendPreviewImage(element, block, options = {}) {
       return;
     }
     if (element.dataset.flowInstance && img.naturalWidth && img.naturalHeight) {
-      updateFlowImageMeasurement(block.id, img.naturalWidth, img.naturalHeight);
+      updateFlowImageMeasurement(block, img.naturalWidth, img.naturalHeight);
     }
     img.style.display = 'block';
     placeholder.style.display = 'none';
@@ -596,8 +596,8 @@ function updateBlockPosition(block, x, y, rotation) {
 const handleResize = throttle(() => {
   if (STATE.layoutMode === 'flow') {
     if (STATE.flow) {
-      clearFlowInstances();
-      STATE.flow.pattern = buildFlowPattern();
+      // The Flow organism is content-sized and locked for this session.
+      // Resizing only changes the canvas viewport, not block placement.
       renderFlowViewport();
     }
     return;

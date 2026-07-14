@@ -6,10 +6,11 @@ const CONFIG = {
   loadInterval: isMobileDevice() ? 300 : 100,    // More time between batches on mobile
   doubleClickDelay: 300,
   dbName: 'ArenaBlocksDB',
-  dbVersion: 3,
+  dbVersion: 4,
   cacheSchemaVersion: 'arena-v4-comments',
   cacheMaxAge: 24 * 60 * 60 * 1000, // 1 day
   historyMaxAge: 30 * 24 * 60 * 60 * 1000, // Keep surf history around for a month
+  flowMeasurementMaxAge: 30 * 24 * 60 * 60 * 1000, // Natural image dimensions are stable; prune after a month
   memoryCheckInterval: 5000,         // Check memory usage every 5 seconds on mobile
   maxBlocks: isMobileDevice() ? 150 : 1000, // Maximum blocks to render at once on mobile
   userOverrideBlockLimit: false,     // Whether the user has chosen to override the block limit

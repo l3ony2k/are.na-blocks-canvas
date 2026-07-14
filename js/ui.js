@@ -1481,6 +1481,52 @@ function getOrderedFlowBlocks() {
   return STATE.allFetchedBlocks.slice();
 }
 
+function getFlowImageVersion(block) {
+  const versions = block?.imageVersions;
+  return versions?.preview || versions?.thumb || versions?.display || versions?.large || versions?.original || null;
+}
+
+function getFlowApiImageDimensions(block) {
+  const versions = block?.imageVersions;
+  const imageVersion = versions?.original || versions?.large || versions?.display || versions?.preview || versions?.thumb;
+  return {
+    width: versions?.width || imageVersion?.width || null,
+    height: versions?.height || imageVersion?.height || null,
+  };
+}
+
+async function hydrateFlowImageMeasurements(blocks) {
+  const candidates = (blocks || []).filter((block) => {
+    if (!block.imageVersions) {
+      return false;
+    }
+    const dimensions = getFlowApiImageDimensions(block);
+    return !dimensions.width || !dimensions.height;
+  });
+
+  if (candidates.length === 0) {
+    return;
+  }
+
+  try {
+    const records = await arenaDB.getFlowImageMeasurements(candidates.map((block) => block.id));
+    candidates.forEach((block) => {
+      const id = String(block.id);
+      const record = records[id];
+      const sourceUrl = getFlowImageVersion(block)?.url;
+      if (record?.sourceUrl === sourceUrl && record.width > 0 && record.height > 0) {
+        STATE.flowImageMeasurements[id] = {
+          sourceUrl,
+          width: record.width,
+          height: record.height,
+        };
+      }
+    });
+  } catch (error) {
+    console.warn("Failed to restore Flow image measurements:", error);
+  }
+}
+
 function estimateFlowBlockHeight(block) {
   const maxHeight = CONFIG.flowBlockMaxHeight;
   const width = CONFIG.flowBlockWidth;
@@ -1496,16 +1542,21 @@ function estimateFlowBlockHeight(block) {
 
   const versions = block.imageVersions;
   const measured = STATE.flowImageMeasurements[String(block.id)];
-  const imageVersion = versions?.original || versions?.large || versions?.display || versions?.preview || versions?.thumb;
-  const sourceWidth = measured?.width || versions?.width || imageVersion?.width;
-  const sourceHeight = measured?.height || versions?.height || imageVersion?.height;
+  const sourceUrl = getFlowImageVersion(block)?.url;
+  const apiDimensions = getFlowApiImageDimensions(block);
+  const measuredDimensions = measured?.sourceUrl === sourceUrl ? measured : null;
+  const sourceWidth = measuredDimensions?.width || apiDimensions.width;
+  const sourceHeight = measuredDimensions?.height || apiDimensions.height;
 
   if (sourceWidth && sourceHeight) {
     return Math.min(maxHeight, Math.max(80, (sourceHeight / sourceWidth) * contentWidth + padding * 2 + borderWidth * 2));
   }
 
   if (versions) {
-    return Math.min(maxHeight, Math.max(120, contentWidth * 0.75 + padding * 2 + borderWidth * 2));
+    // When Are.na omits intrinsic dimensions, use a neutral square card. The
+    // pattern is locked for the current Flow session, so a later image load
+    // cannot rearrange the masonry layout.
+    return Math.min(maxHeight, Math.max(120, contentWidth + padding * 2 + borderWidth * 2));
   }
 
   const text = block.textPlain || block.title || block.descriptionPlain || "";
@@ -1519,33 +1570,27 @@ function estimateFlowBlockHeight(block) {
   return 180;
 }
 
-function updateFlowImageMeasurement(blockId, width, height) {
-  const id = String(blockId);
+function updateFlowImageMeasurement(block, width, height) {
+  if (!block || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return;
+  }
+
+  const id = String(block.id);
+  const sourceUrl = getFlowImageVersion(block)?.url || null;
   const previous = STATE.flowImageMeasurements[id];
 
-  if (previous?.width === width && previous?.height === height) {
+  if (previous?.sourceUrl === sourceUrl && previous?.width === width && previous?.height === height) {
     return;
   }
 
-  STATE.flowImageMeasurements[id] = { width, height };
+  STATE.flowImageMeasurements[id] = { sourceUrl, width, height };
 
-  if (STATE.layoutMode !== "flow" || !STATE.flow) {
-    return;
+  const apiDimensions = getFlowApiImageDimensions(block);
+  if ((!apiDimensions.width || !apiDimensions.height) && sourceUrl) {
+    arenaDB.saveFlowImageMeasurement(id, sourceUrl, width, height).catch((error) => {
+      console.warn(`Failed to cache Flow image measurement for block ${id}:`, error);
+    });
   }
-
-  if (STATE.flow.measurementFrame) {
-    cancelAnimationFrame(STATE.flow.measurementFrame);
-  }
-
-  STATE.flow.measurementFrame = requestAnimationFrame(() => {
-    if (!STATE.flow || STATE.layoutMode !== "flow") {
-      return;
-    }
-
-    STATE.flow.measurementFrame = null;
-    STATE.flow.pattern = buildFlowPattern();
-    renderFlowViewport();
-  });
 }
 
 function buildFlowPattern() {
@@ -1553,8 +1598,10 @@ function buildFlowPattern() {
   const gap = getFlowGapPixels();
   const blockWidth = CONFIG.flowBlockWidth;
   const columnPitch = blockWidth + gap;
-  const viewportColumns = Math.ceil((window.innerWidth + gap) / columnPitch);
-  const columnCount = Math.max(2, viewportColumns + 2);
+  // Size the repeating organism from its content instead of the viewport.
+  // A square-root column count keeps the number of columns and the average
+  // number of blocks per column near one another.
+  const columnCount = Math.max(1, Math.ceil(Math.sqrt(blocks.length)));
   const columns = Array.from({ length: columnCount }, (_, index) => ({
     index,
     x: index * columnPitch,
@@ -1761,7 +1808,7 @@ function getFlowImage(block) {
   // Flow blocks render at ~200 CSS px wide; a small/medium version covers
   // the whole 0.5-2x zoom range. Swapping to sharper versions mid-zoom
   // caused visible reload jank, so we deliberately don't.
-  const version = versions.preview || versions.thumb || versions.display || versions.large || versions.original;
+  const version = getFlowImageVersion(block);
   if (!version?.url) {
     return null;
   }
@@ -1776,7 +1823,7 @@ function getFlowImage(block) {
   image.onload = () => {
     entry.loaded = true;
     if (image.naturalWidth && image.naturalHeight) {
-      updateFlowImageMeasurement(block.id, image.naturalWidth, image.naturalHeight);
+      updateFlowImageMeasurement(block, image.naturalWidth, image.naturalHeight);
     }
     requestFlowRender();
   };
@@ -2575,7 +2622,6 @@ function enterFlowMode() {
     lastTapY: 0,
     activePointers: new Map(),
     pinch: null,
-    measurementFrame: null,
     renderFrame: null,
   };
 
@@ -2604,9 +2650,6 @@ function exitFlowMode(renderBlocksAfter = true) {
 
   if (STATE.flow.renderFrame) {
     cancelAnimationFrame(STATE.flow.renderFrame);
-  }
-  if (STATE.flow.measurementFrame) {
-    cancelAnimationFrame(STATE.flow.measurementFrame);
   }
 
   if (STATE.flow.surface) {

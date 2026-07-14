@@ -285,6 +285,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
         STATE.cachedBlockOrder = Array.isArray(cachedData.order)
           ? cachedData.order.map((id) => String(id))
           : [];
+        await hydrateFlowImageMeasurements(STATE.allFetchedBlocks);
         ensureBlockLayout(STATE.allFetchedBlocks);
 
         const isMobile = isMobileDevice();
@@ -331,6 +332,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
     }
 
     STATE.allFetchedBlocks = blocks;
+    await hydrateFlowImageMeasurements(blocks);
     ensureBlockLayout(blocks);
 
     if (cacheable) {

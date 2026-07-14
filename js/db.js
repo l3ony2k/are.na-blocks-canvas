@@ -31,6 +31,11 @@ class ArenaDB {
           historyStore.createIndex('slug', 'slug', { unique: false });
         }
 
+        if (!db.objectStoreNames.contains('flowMeasurements')) {
+          const measurementStore = db.createObjectStore('flowMeasurements', { keyPath: 'blockId' });
+          measurementStore.createIndex('timestamp', 'timestamp', { unique: false });
+        }
+
         if (event.oldVersion < 2) {
           this.clearOldCache();
         }
@@ -93,6 +98,57 @@ class ArenaDB {
     });
   }
 
+  async saveFlowImageMeasurement(blockId, sourceUrl, width, height) {
+    if (!sourceUrl || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return;
+    }
+
+    await this.ready;
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('flowMeasurements', 'readwrite');
+      tx.objectStore('flowMeasurements').put({
+        blockId: String(blockId),
+        sourceUrl,
+        width,
+        height,
+        timestamp: Date.now()
+      });
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  async getFlowImageMeasurements(blockIds, maxAge = CONFIG.flowMeasurementMaxAge) {
+    const ids = [...new Set((blockIds || []).map((id) => String(id)))];
+    if (ids.length === 0) {
+      return {};
+    }
+
+    await this.ready;
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('flowMeasurements', 'readonly');
+      const store = tx.objectStore('flowMeasurements');
+      const measurements = {};
+      const cutoff = Date.now() - maxAge;
+
+      ids.forEach((id) => {
+        const request = store.get(id);
+        request.onsuccess = () => {
+          const value = request.result;
+          if (value && value.timestamp >= cutoff) {
+            measurements[id] = value;
+          }
+        };
+      });
+
+      tx.oncomplete = () => resolve(measurements);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
   async addToHistory(slug, title) {
     await this.ready;
     return new Promise((resolve, reject) => {
@@ -139,16 +195,25 @@ class ArenaDB {
   async clearChannels() {
     await this.ready;
     return new Promise((resolve, reject) => {
-      const tx = this.db.transaction('channels', 'readwrite');
-      const request = tx.objectStore('channels').clear();
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      const stores = ['channels'];
+      if (this.db.objectStoreNames.contains('flowMeasurements')) {
+        stores.push('flowMeasurements');
+      }
+      const tx = this.db.transaction(stores, 'readwrite');
+      stores.forEach((name) => tx.objectStore(name).clear());
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   }
 
   async clearOldCache(maxAge = CONFIG.cacheMaxAge) {
     await this.ready;
-    const tx = this.db.transaction(['channels', 'history'], 'readwrite');
+    const stores = ['channels', 'history'];
+    if (this.db.objectStoreNames.contains('flowMeasurements')) {
+      stores.push('flowMeasurements');
+    }
+    const tx = this.db.transaction(stores, 'readwrite');
     const channelStore = tx.objectStore('channels');
     const historyStore = tx.objectStore('history');
     const now = Date.now();
@@ -177,12 +242,26 @@ class ArenaDB {
             cursor.delete();
           }
           cursor.continue();
-        } else {
-          resolve();
         }
       };
 
+      if (stores.includes('flowMeasurements')) {
+        const measurementMaxAge = CONFIG.flowMeasurementMaxAge || maxAge;
+        const measurementRequest = tx.objectStore('flowMeasurements').index('timestamp').openCursor();
+        measurementRequest.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            if (now - cursor.value.timestamp > measurementMaxAge) {
+              cursor.delete();
+            }
+            cursor.continue();
+          }
+        };
+      }
+
+      tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   }
 }
