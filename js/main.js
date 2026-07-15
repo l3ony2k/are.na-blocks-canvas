@@ -16,6 +16,7 @@ function ensureBlockLayout(blocks) {
     maxY: viewport.height - blockDimensions.height,
   };
 
+  const orderedIds = new Set(STATE.cachedBlockOrder.map((id) => String(id)));
   blocks.forEach((block) => {
     if (!STATE.cachedBlockPositions[block.id]) {
       STATE.cachedBlockPositions[block.id] = {
@@ -25,11 +26,10 @@ function ensureBlockLayout(blocks) {
       };
     }
 
-    if (
-      !STATE.cachedBlockOrder.includes(String(block.id)) &&
-      !STATE.cachedBlockOrder.includes(block.id)
-    ) {
-      STATE.cachedBlockOrder.push(String(block.id));
+    const id = String(block.id);
+    if (!orderedIds.has(id)) {
+      STATE.cachedBlockOrder.push(id);
+      orderedIds.add(id);
     }
   });
 
@@ -52,9 +52,7 @@ function clearRenderedBlocks() {
 function renderBlockBatch(blockIds) {
   blockIds.forEach((blockId) => {
     try {
-      const block = STATE.allFetchedBlocks.find(
-        (item) => String(item.id) === String(blockId),
-      );
+      const block = STATE.blockById.get(String(blockId));
       if (!block) {
         return;
       }
@@ -261,6 +259,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
   STATE.channelSlugs = [newSlug];
   STATE.currentChannelInfo = null;
   STATE.allFetchedBlocks = [];
+  STATE.blockById = new Map();
   STATE.currentlyDisplayedBlocks = 0;
   STATE.cachedBlockPositions = {};
   STATE.cachedBlockOrder = [];
@@ -281,6 +280,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
         outputLog(`[Cache] Loading data for ${newSlug}`);
 
         STATE.allFetchedBlocks = cachedData.data;
+        STATE.blockById = new Map(cachedData.data.map((block) => [String(block.id), block]));
         STATE.cachedBlockPositions = cachedData.positions || {};
         STATE.cachedBlockOrder = Array.isArray(cachedData.order)
           ? cachedData.order.map((id) => String(id))
@@ -332,6 +332,7 @@ async function updateChannel(newSlug, forceRefresh = false) {
     }
 
     STATE.allFetchedBlocks = blocks;
+    STATE.blockById = new Map(blocks.map((block) => [String(block.id), block]));
     await hydrateFlowImageMeasurements(blocks);
     ensureBlockLayout(blocks);
 
@@ -624,11 +625,7 @@ function loadMoreBlocks() {
     blocksToRender = STATE.cachedBlockOrder
       .slice(startIndex, endIndex)
       .filter((blockId) => !STATE.visibleBlockIds.has(String(blockId)))
-      .map((blockId) =>
-        STATE.allFetchedBlocks.find(
-          (block) => String(block.id) === String(blockId),
-        ),
-      )
+      .map((blockId) => STATE.blockById.get(String(blockId)))
       .filter(Boolean);
   }
 
@@ -834,9 +831,7 @@ async function showDetailView(event) {
     }
   });
 
-  const block = STATE.allFetchedBlocks.find(
-    (item) => String(item.id) === String(blockId),
-  );
+  const block = STATE.blockById.get(String(blockId));
   if (!block) {
     console.error("Could not find block data:", blockId);
     return;

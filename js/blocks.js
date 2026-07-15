@@ -10,6 +10,37 @@ const IMAGE_LOAD_QUEUE = {
   scheduled: false
 };
 
+let IMAGE_UPGRADE_OBSERVER = null;
+
+function getImageUpgradeObserver() {
+  if (!('IntersectionObserver' in window)) {
+    return null;
+  }
+  if (IMAGE_UPGRADE_OBSERVER) {
+    return IMAGE_UPGRADE_OBSERVER;
+  }
+
+  IMAGE_UPGRADE_OBSERVER = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) {
+        return;
+      }
+
+      const element = entry.target;
+      observer.unobserve(element);
+      const loadHigherQualityImage = element._loadHigherQualityImage;
+      element._loadHigherQualityImage = null;
+      element._imageObserver = null;
+      loadHigherQualityImage?.();
+    });
+  }, {
+    rootMargin: '100px',
+    threshold: 0.1
+  });
+
+  return IMAGE_UPGRADE_OBSERVER;
+}
+
 function queueImageLoad(entry) {
   IMAGE_LOAD_QUEUE.pending.push(entry);
   IMAGE_LOAD_QUEUE.dirty = true;
@@ -161,123 +192,136 @@ function handleWheelRotation(event) {
   const y = getTranslateYValue(block);
 
   block.style.transform = `translate(${x}px, ${y}px) rotate(${newRotation}deg)`;
+  if (DOM_DRAG.element === block) {
+    DOM_DRAG.rotation = newRotation;
+  }
   updateBlockPosition(block, x, y, newRotation);
   event.preventDefault();
 }
+
+const DOM_DRAG = {
+  element: null,
+  offsetX: 0,
+  offsetY: 0,
+  startX: 0,
+  startY: 0,
+  width: 0,
+  height: 0,
+  rotation: 0,
+  isDragging: false,
+  lastMoveTime: 0
+};
+
+function beginDomDrag(element, pageX, pageY) {
+  const rotationMatch = element.style.transform.match(/rotate\(([^)]+)\)/);
+  DOM_DRAG.element = element;
+  DOM_DRAG.offsetX = pageX - getTranslateXValue(element);
+  DOM_DRAG.offsetY = pageY - getTranslateYValue(element);
+  DOM_DRAG.startX = pageX;
+  DOM_DRAG.startY = pageY;
+  DOM_DRAG.width = element.offsetWidth;
+  DOM_DRAG.height = element.offsetHeight;
+  DOM_DRAG.rotation = rotationMatch ? parseFloat(rotationMatch[1]) : 0;
+  DOM_DRAG.isDragging = false;
+  DOM_DRAG.lastMoveTime = 0;
+  temporaryRaiseBlock(element);
+}
+
+function moveDomDrag(pageX, pageY) {
+  const element = DOM_DRAG.element;
+  if (!element?.isConnected) {
+    return;
+  }
+
+  const dx = pageX - DOM_DRAG.startX;
+  const dy = pageY - DOM_DRAG.startY;
+  if (!DOM_DRAG.isDragging && Math.hypot(dx, dy) > 5) {
+    DOM_DRAG.isDragging = true;
+    element.classList.add('dragging');
+    commitRaiseBlock(element);
+  }
+  if (!DOM_DRAG.isDragging) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - DOM_DRAG.lastMoveTime < 25) {
+    return;
+  }
+  DOM_DRAG.lastMoveTime = now;
+
+  let x = pageX - DOM_DRAG.offsetX;
+  let y = pageY - DOM_DRAG.offsetY;
+  x = Math.min(Math.max(x, -DOM_DRAG.width / 2), window.innerWidth - DOM_DRAG.width / 2);
+  y = Math.min(Math.max(y, -DOM_DRAG.height / 2), window.innerHeight - DOM_DRAG.height / 2 - 30);
+  element.style.transform = `translate(${x}px, ${y}px) rotate(${DOM_DRAG.rotation}deg)`;
+}
+
+function endDomDrag() {
+  const element = DOM_DRAG.element;
+  if (!element) {
+    return;
+  }
+
+  if (DOM_DRAG.isDragging && element.isConnected) {
+    const x = getTranslateXValue(element);
+    const y = getTranslateYValue(element);
+    const blockId = element.dataset.blockId;
+    STATE.cachedBlockPositions[blockId] = { x, y, rotation: DOM_DRAG.rotation };
+
+    const index = STATE.cachedBlockOrder.indexOf(blockId);
+    if (index > -1) {
+      STATE.cachedBlockOrder.splice(index, 1);
+      STATE.cachedBlockOrder.push(blockId);
+    }
+    schedulePositionCacheSave();
+  }
+
+  element.classList.remove('dragging');
+  DOM_DRAG.element = null;
+  DOM_DRAG.isDragging = false;
+}
+
+document.addEventListener('mousemove', event => {
+  moveDomDrag(event.pageX, event.pageY);
+});
+document.addEventListener('mouseup', endDomDrag);
 
 function makeDraggable(element) {
   if (element.dataset.flowInstance) {
     return;
   }
 
-  let offsetX = 0;
-  let offsetY = 0;
-  let startX = 0;
-  let startY = 0;
-  let isDragging = false;
-  let lastMoveTime = 0;
-  const throttleInterval = 25;
-  const dragThreshold = 5;
-
-  function saveBlockPosition() {
-    if (isDragging) {
-      const x = getTranslateXValue(element);
-      const y = getTranslateYValue(element);
-      const rotationMatch = element.style.transform.match(/rotate\(([^)]+)\)/);
-      const rotation = rotationMatch ? parseFloat(rotationMatch[1]) : 0;
-
-      STATE.cachedBlockPositions[element.dataset.blockId] = { x, y, rotation };
-
-      const blockIdToMove = element.dataset.blockId;
-      const index = STATE.cachedBlockOrder.indexOf(blockIdToMove);
-      if (index > -1) {
-        STATE.cachedBlockOrder.splice(index, 1);
-        STATE.cachedBlockOrder.push(blockIdToMove);
-      }
-
-      schedulePositionCacheSave();
-    }
-
-    isDragging = false;
-    startX = 0;
-    startY = 0;
-    element.classList.remove('dragging');
-  }
-
-  function handleMove(pageX, pageY) {
-    if (startX === 0 && startY === 0) {
-      return;
-    }
-
-    const dx = pageX - startX;
-    const dy = pageY - startY;
-
-    if (!isDragging && Math.sqrt(dx * dx + dy * dy) > dragThreshold) {
-      isDragging = true;
-      element.classList.add('dragging');
-      commitRaiseBlock(element);
-    }
-
-    if (!isDragging) {
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastMoveTime < throttleInterval) {
-      return;
-    }
-    lastMoveTime = now;
-
-    let x = pageX - offsetX;
-    let y = pageY - offsetY;
-    const blockWidth = element.offsetWidth;
-    const blockHeight = element.offsetHeight;
-    const minX = -blockWidth / 2;
-    const minY = -blockHeight / 2;
-    const maxX = window.innerWidth - blockWidth / 2;
-    const maxY = window.innerHeight - blockHeight / 2 - 30;
-
-    x = Math.min(Math.max(x, minX), maxX);
-    y = Math.min(Math.max(y, minY), maxY);
-
-    const rotationMatch = element.style.transform.match(/rotate\(([^)]+)\)/);
-    const currentRotation = rotationMatch ? `rotate(${rotationMatch[1]})` : '';
-    element.style.transform = `translate(${x}px, ${y}px) ${currentRotation}`;
-  }
-
   element.addEventListener('mousedown', event => {
-    startX = event.pageX;
-    startY = event.pageY;
-    offsetX = event.pageX - getTranslateXValue(element);
-    offsetY = event.pageY - getTranslateYValue(element);
-    temporaryRaiseBlock(element);
+    beginDomDrag(element, event.pageX, event.pageY);
   });
-
-  document.addEventListener('mousemove', event => {
-    handleMove(event.pageX, event.pageY);
-  });
-
-  document.addEventListener('mouseup', saveBlockPosition);
 
   element.addEventListener('touchstart', event => {
     const touch = event.touches[0];
-    startX = touch.pageX;
-    startY = touch.pageY;
-    offsetX = touch.pageX - getTranslateXValue(element);
-    offsetY = touch.pageY - getTranslateYValue(element);
-    temporaryRaiseBlock(element);
+    beginDomDrag(element, touch.pageX, touch.pageY);
   });
 
   element.addEventListener('touchmove', event => {
+    if (DOM_DRAG.element !== element) {
+      return;
+    }
     const touch = event.touches[0];
-    handleMove(touch.pageX, touch.pageY);
+    moveDomDrag(touch.pageX, touch.pageY);
     event.preventDefault();
   });
 
   element.addEventListener('touchend', event => {
-    saveBlockPosition();
+    if (DOM_DRAG.element === element) {
+      endDomDrag();
+    }
     if (event.cancelable) {
       event.preventDefault();
+    }
+  });
+
+  element.addEventListener('touchcancel', () => {
+    if (DOM_DRAG.element === element) {
+      endDomDrag();
     }
   });
 }
@@ -489,21 +533,17 @@ function appendPreviewImage(element, block, options = {}) {
     });
   }
 
-  if (shouldUseObserver && 'IntersectionObserver' in window) {
-    const observer = new IntersectionObserver((entries, currentObserver) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          loadHigherQualityImage();
-          currentObserver.disconnect();
-        }
-      });
-    }, {
-      rootMargin: '100px',
-      threshold: 0.1
-    });
-
+  const observer = shouldUseObserver ? getImageUpgradeObserver() : null;
+  if (observer) {
+    element._loadHigherQualityImage = loadHigherQualityImage;
     observer.observe(element);
-    element._imageObserver = observer;
+    element._imageObserver = {
+      disconnect() {
+        observer.unobserve(element);
+        element._loadHigherQualityImage = null;
+        element._imageObserver = null;
+      }
+    };
   } else {
     loadHigherQualityImage();
   }

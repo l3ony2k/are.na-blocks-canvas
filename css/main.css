@@ -112,9 +112,31 @@ blockquote {
     touch-action: none;
 }
 
+#flow-gif-layer {
+    position: fixed;
+    inset: 35px 0 0 0;
+    overflow: hidden;
+    z-index: 2;
+    pointer-events: none;
+    contain: strict;
+}
+
+.flow-gif-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    object-fit: contain;
+    transform-origin: 0 0;
+    will-change: transform;
+    pointer-events: none;
+    user-select: none;
+}
+
 body.flow-dragging,
 body.flow-dragging #flow-surface,
-body.flow-dragging #flow-canvas {
+body.flow-dragging #flow-canvas,
+body.flow-dragging #flow-gif-layer {
     cursor: grabbing !important;
 }
 

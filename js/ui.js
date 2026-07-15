@@ -1232,6 +1232,7 @@ function initHeaderBar() {
     updatePWAThemeColors(newTheme);
 
     if (STATE.layoutMode === "flow") {
+      STATE.flow.theme = null;
       requestFlowRender();
     }
   });
@@ -1486,6 +1487,19 @@ function getFlowImageVersion(block) {
   return versions?.preview || versions?.thumb || versions?.display || versions?.large || versions?.original || null;
 }
 
+function isGifUrl(url) {
+  return typeof url === "string" && /\.gif(?:$|[?#])/i.test(url);
+}
+
+function getFlowGifVersion(block) {
+  const versions = block?.imageVersions;
+  if (!versions) {
+    return null;
+  }
+
+  return [versions.preview, versions.thumb, versions.display, versions.large, versions.original].find((version) => isGifUrl(version?.url)) || null;
+}
+
 function getFlowApiImageDimensions(block) {
   const versions = block?.imageVersions;
   const imageVersion = versions?.original || versions?.large || versions?.display || versions?.preview || versions?.thumb;
@@ -1700,14 +1714,54 @@ function removeFlowCanvas() {
   }
 }
 
+function createFlowGifLayer() {
+  let layer = document.getElementById("flow-gif-layer");
+  if (layer) {
+    return layer;
+  }
+
+  layer = document.createElement("div");
+  layer.id = "flow-gif-layer";
+  document.body.appendChild(layer);
+  return layer;
+}
+
+function clearFlowGifInstances() {
+  if (!STATE.flow) {
+    return;
+  }
+
+  const images = [...Array.from(STATE.flow.gifVisible?.values() || []), ...(STATE.flow.gifPool || [])];
+  images.forEach((image) => {
+    image._flowGifToken = null;
+    image.onload = null;
+    image.onerror = null;
+    image.removeAttribute("src");
+    image.remove();
+  });
+  STATE.flow.gifVisible?.clear();
+  STATE.flow.gifPool = [];
+}
+
+function removeFlowGifLayer() {
+  const layer = document.getElementById("flow-gif-layer");
+  if (layer) {
+    layer.remove();
+  }
+}
+
 const FLOW_FONT_STACK = 'ui-monospace, Menlo, Monaco, "Cascadia Mono", monospace';
 
 // Sample theme colors once per render pass instead of per block per frame.
 function getFlowCanvasTheme() {
+  if (STATE.flow?.theme) {
+    return STATE.flow.theme;
+  }
+
   const rootStyle = getComputedStyle(document.documentElement);
   const pick = (name, fallback) => (rootStyle.getPropertyValue(name) || "").trim() || fallback;
 
-  return {
+  const theme = {
     blockBg: pick("--block-bg", "#fff"),
     blockBorder: pick("--block-border", "#000"),
     channelBorder: pick("--channel-block-border", "#17ac10"),
@@ -1716,6 +1770,10 @@ function getFlowCanvasTheme() {
     visPublic: pick("--vis-public-color", "#17ac10"),
     visPrivate: pick("--vis-private-color", "#c32222"),
   };
+  if (STATE.flow) {
+    STATE.flow.theme = theme;
+  }
+  return theme;
 }
 
 // Color + header label for a channel block drawn on the flow canvas.
@@ -1799,7 +1857,7 @@ function getCanvasText(block) {
   return text;
 }
 
-function getFlowImage(block) {
+function getFlowImage(block, isDrawn = true) {
   if (!block.imageVersions) {
     return null;
   }
@@ -1815,21 +1873,33 @@ function getFlowImage(block) {
 
   let entry = STATE.flow.imageCache.get(version.url);
   if (entry) {
+    STATE.flow.imageCache.delete(version.url);
+    STATE.flow.imageCache.set(version.url, entry);
+    STATE.flow.activeImageUrls.add(version.url);
+    if (isDrawn) {
+      STATE.flow.drawImageUrls.add(version.url);
+      entry.image.fetchPriority = "high";
+    }
     return entry;
   }
 
   const image = new Image();
   image.decoding = "async";
+  image.fetchPriority = isDrawn ? "high" : "low";
   image.onload = () => {
     entry.loaded = true;
     if (image.naturalWidth && image.naturalHeight) {
       updateFlowImageMeasurement(block, image.naturalWidth, image.naturalHeight);
     }
-    requestFlowRender();
+    if (STATE.flow?.drawImageUrls.has(version.url)) {
+      requestFlowRender();
+    }
   };
   image.onerror = () => {
     entry.failed = true;
-    requestFlowRender();
+    if (STATE.flow?.drawImageUrls.has(version.url)) {
+      requestFlowRender();
+    }
   };
 
   entry = {
@@ -1838,8 +1908,102 @@ function getFlowImage(block) {
     failed: false,
   };
   STATE.flow.imageCache.set(version.url, entry);
+  STATE.flow.activeImageUrls.add(version.url);
+  if (isDrawn) {
+    STATE.flow.drawImageUrls.add(version.url);
+  }
   image.src = version.url;
   return entry;
+}
+
+function preloadFlowImages(placements) {
+  placements.forEach((placement) => {
+    const block = placement.item.block;
+    if (block.imageVersions && !getFlowGifVersion(block)) {
+      getFlowImage(block, false);
+    }
+  });
+}
+
+function flowPlacementDistanceSquared(placement, zoom) {
+  const left = placement.x * zoom;
+  const top = placement.y * zoom;
+  const right = left + placement.item.width * zoom;
+  const bottom = top + placement.item.height * zoom;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = Math.max(1, window.innerHeight - 35);
+  const deltaX = right < 0 ? -right : left > viewportWidth ? left - viewportWidth : 0;
+  const deltaY = bottom < 0 ? -bottom : top > viewportHeight ? top - viewportHeight : 0;
+  return deltaX * deltaX + deltaY * deltaY;
+}
+
+function selectFlowMediaPlacements(drawPlacements, mediaPlacements, zoom) {
+  const drawKeys = new Set(drawPlacements.map((placement) => placement.key));
+  const imagePlacements = [];
+  const gifPlacements = [];
+  const imageUrls = new Set();
+  const gifKeys = new Set();
+
+  function addPlacement(placement) {
+    const block = placement.item.block;
+    const gifVersion = getFlowGifVersion(block);
+    if (gifVersion) {
+      if (!gifKeys.has(placement.key)) {
+        gifKeys.add(placement.key);
+        gifPlacements.push(placement);
+      }
+      return;
+    }
+
+    const imageUrl = getFlowImageVersion(block)?.url;
+    if (imageUrl && !imageUrls.has(imageUrl)) {
+      imageUrls.add(imageUrl);
+      imagePlacements.push(placement);
+    }
+  }
+
+  drawPlacements.forEach(addPlacement);
+  // Keep a real grace budget beyond what the viewport already needs. A fixed
+  // total cap gets consumed by drawn media at low zoom and leaves no overscan.
+  const imageLimit = imageUrls.size + (CONFIG.flowImagePreloadMax || 0);
+  const gifLimit = gifKeys.size + (CONFIG.flowGifPreloadMax || 0);
+  const gracePlacements = mediaPlacements
+    .filter((placement) => !drawKeys.has(placement.key))
+    .sort((first, second) => flowPlacementDistanceSquared(first, zoom) - flowPlacementDistanceSquared(second, zoom));
+
+  for (const placement of gracePlacements) {
+    const isGif = Boolean(getFlowGifVersion(placement.item.block));
+    if (isGif ? gifKeys.size < gifLimit : imageUrls.size < imageLimit) {
+      addPlacement(placement);
+    }
+    if (imageUrls.size >= imageLimit && gifKeys.size >= gifLimit) {
+      break;
+    }
+  }
+
+  return { drawKeys, imagePlacements, gifPlacements };
+}
+
+function trimFlowImageCache() {
+  const flow = STATE.flow;
+  const maxEntries = CONFIG.flowImageCacheMax;
+  if (!flow || !maxEntries || flow.imageCache.size <= maxEntries) {
+    return;
+  }
+
+  for (const [url, entry] of flow.imageCache) {
+    if (flow.imageCache.size <= maxEntries) {
+      break;
+    }
+    if (flow.activeImageUrls.has(url) || (!entry.loaded && !entry.failed)) {
+      continue;
+    }
+
+    entry.image.onload = null;
+    entry.image.onerror = null;
+    entry.image.removeAttribute("src");
+    flow.imageCache.delete(url);
+  }
 }
 
 // Wrap text into at most maxLines lines fitting maxWidth with the current
@@ -1916,6 +2080,18 @@ function wrapCanvasText(ctx, text, maxWidth, maxLines) {
   return lines;
 }
 
+function getCachedFlowLines(block, kind, ctx, text, maxWidth, maxLines) {
+  const cache = STATE.flow?.lineCache;
+  const key = `${kind}:${block.id}:${maxWidth}:${maxLines}`;
+  if (cache?.has(key)) {
+    return cache.get(key);
+  }
+
+  const lines = wrapCanvasText(ctx, text, maxWidth, maxLines);
+  cache?.set(key, lines);
+  return lines;
+}
+
 // Mirrors the DOM channel-block style: small header label with a large,
 // centered, wrapped title below it.
 function drawFlowChannelBlock(ctx, block, theme, contentX, contentY, contentWidth, contentHeight) {
@@ -1932,7 +2108,7 @@ function drawFlowChannelBlock(ctx, block, theme, contentX, contentY, contentWidt
 
   ctx.font = `${titleFontSize}px ${FLOW_FONT_STACK}`;
   const maxTitleLines = Math.max(1, Math.floor((contentHeight - headerLineHeight - groupGap) / titleLineHeight));
-  const titleLines = wrapCanvasText(ctx, block.title || "Untitled Channel", contentWidth, maxTitleLines);
+  const titleLines = getCachedFlowLines(block, "channel", ctx, block.title || "Untitled Channel", contentWidth, maxTitleLines);
 
   const groupHeight = headerLineHeight + groupGap + titleLines.length * titleLineHeight;
   let cursorY = contentY + Math.max(0, (contentHeight - groupHeight) / 2);
@@ -2016,7 +2192,24 @@ function drawFlowCanvasBlock(ctx, placement, theme, shadow) {
     return;
   }
 
-  const imageEntry = getFlowImage(block);
+  const gifVersion = getFlowGifVersion(block);
+  if (gifVersion) {
+    const gifImage = STATE.flow?.gifVisible?.get(placement.key);
+    if (!gifImage?._flowGifFailed) {
+      if (!gifImage?._flowGifLoaded) {
+        ctx.fillStyle = theme.textColor;
+        ctx.globalAlpha = 0.7;
+        ctx.font = `${CONFIG.flowTextFontSize}px ${FLOW_FONT_STACK}`;
+        ctx.textAlign = "center";
+        ctx.fillText("Loading image...", contentX + contentWidth / 2, contentY + Math.max(0, contentHeight / 2 - CONFIG.flowTextFontSize / 2));
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+      return;
+    }
+  }
+
+  const imageEntry = gifVersion ? null : getFlowImage(block);
   if (imageEntry && !imageEntry.failed) {
     if (imageEntry.loaded) {
       const image = imageEntry.image;
@@ -2041,7 +2234,7 @@ function drawFlowCanvasBlock(ctx, placement, theme, shadow) {
   ctx.textAlign = "left";
   const lineHeight = CONFIG.flowTextLineHeight;
   const maxLines = Math.max(1, Math.floor(contentHeight / lineHeight));
-  const lines = wrapCanvasText(ctx, getCanvasText(block), contentWidth, maxLines);
+  const lines = getCachedFlowLines(block, "text", ctx, getCanvasText(block), contentWidth, maxLines);
   const lineOffset = (lineHeight - CONFIG.flowTextFontSize) / 2;
   lines.forEach((textLine, index) => {
     ctx.fillText(textLine, contentX, contentY + index * lineHeight + lineOffset);
@@ -2082,7 +2275,7 @@ function findPastVisibleFlowItem(items, localBottom) {
   return low;
 }
 
-function getVisibleFlowPlacements() {
+function getVisibleFlowPlacements(renderBuffer = CONFIG.flowRenderBuffer, collectKeys = true) {
   if (STATE.layoutMode !== "flow" || !STATE.flow) {
     return { visibleKeys: new Set(), placements: [] };
   }
@@ -2098,8 +2291,8 @@ function getVisibleFlowPlacements() {
   // user zooms out.
   const zoom = flow.zoom || 1;
   const worldWidth = window.innerWidth / zoom;
-  const worldHeight = window.innerHeight / zoom;
-  const buffer = CONFIG.flowRenderBuffer;
+  const worldHeight = Math.max(1, window.innerHeight - 35) / zoom;
+  const buffer = renderBuffer;
   const viewport = {
     left: -buffer,
     top: -buffer,
@@ -2109,7 +2302,7 @@ function getVisibleFlowPlacements() {
 
   const minTileX = Math.floor((-flow.offsetX - buffer) / pattern.width) - 1;
   const maxTileX = Math.ceil((-flow.offsetX + worldWidth + buffer) / pattern.width) + 1;
-  const visibleKeys = new Set();
+  const visibleKeys = collectKeys ? new Set() : null;
   const placements = [];
 
   for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
@@ -2141,7 +2334,7 @@ function getVisibleFlowPlacements() {
           }
 
           const key = `${tileX}:${column.index}:${cycleY}:${item.blockIndex}`;
-          visibleKeys.add(key);
+          visibleKeys?.add(key);
           placements.push({ key, item, x: screenX, y: screenY });
         }
       }
@@ -2191,12 +2384,16 @@ function renderFlowCanvasViewport() {
   }
 
   resizeFlowCanvas();
-  const { placements } = getVisibleFlowPlacements();
+  const zoom = flow.zoom || 1;
+  const renderBuffer = (CONFIG.flowCanvasRenderBuffer || 0) / zoom;
+  const { placements } = getVisibleFlowPlacements(renderBuffer, false);
+  const mediaBuffer = Math.max(CONFIG.flowCanvasRenderBuffer || 0, CONFIG.flowMediaPreloadBuffer || 0) / zoom;
+  const { placements: mediaPlacements } = getVisibleFlowPlacements(mediaBuffer, false);
+  const selectedMedia = selectFlowMediaPlacements(placements, mediaPlacements, zoom);
   const ctx = flow.ctx;
   const width = window.innerWidth;
   const height = Math.max(1, window.innerHeight - 35);
   const theme = getFlowCanvasTheme();
-  const zoom = flow.zoom || 1;
   const dpr = window.devicePixelRatio || 1;
   // Canvas shadow params live in device space (unaffected by the transform),
   // so scale them once per pass to match the CSS 3px/5px block shadow.
@@ -2206,6 +2403,10 @@ function renderFlowCanvasViewport() {
   ctx.save();
   ctx.scale(zoom, zoom);
   flow.hitRegions = [];
+  flow.activeImageUrls.clear();
+  flow.drawImageUrls.clear();
+  preloadFlowImages(selectedMedia.imagePlacements);
+  syncFlowGifOverlays(selectedMedia.gifPlacements, selectedMedia.drawKeys);
 
   placements.forEach((placement) => {
     drawFlowCanvasBlock(ctx, placement, theme, shadow);
@@ -2219,6 +2420,117 @@ function renderFlowCanvasViewport() {
   });
 
   ctx.restore();
+  trimFlowImageCache();
+}
+
+function bindFlowGifImage(image, placement, version) {
+  const block = placement.item.block;
+  const token = `${placement.key}:${version.url}`;
+  image._flowGifToken = token;
+  image._flowGifSource = version.url;
+  image._flowGifLoaded = false;
+  image._flowGifFailed = false;
+  image.style.visibility = "hidden";
+  image.alt = block.imageVersions?.altText || block.title || "";
+
+  image.onload = () => {
+    if (image._flowGifToken !== token || !STATE.flow) {
+      return;
+    }
+    image._flowGifLoaded = true;
+    image.style.visibility = "visible";
+    if (image.naturalWidth && image.naturalHeight) {
+      updateFlowImageMeasurement(block, image.naturalWidth, image.naturalHeight);
+    }
+    if (image._flowGifDrawn) {
+      requestFlowRender();
+    }
+  };
+  image.onerror = () => {
+    if (image._flowGifToken !== token || !STATE.flow) {
+      return;
+    }
+    image._flowGifFailed = true;
+    image.style.visibility = "hidden";
+    if (image._flowGifDrawn) {
+      requestFlowRender();
+    }
+  };
+  image.src = version.url;
+}
+
+function acquireFlowGifImage(placement, version) {
+  const flow = STATE.flow;
+  const image = flow.gifPool.pop() || document.createElement("img");
+  image.className = "flow-gif-image";
+  image.draggable = false;
+  bindFlowGifImage(image, placement, version);
+  flow.gifLayer.appendChild(image);
+  flow.gifVisible.set(placement.key, image);
+  return image;
+}
+
+function releaseFlowGifImage(key, image) {
+  const flow = STATE.flow;
+  flow.gifVisible.delete(key);
+  image._flowGifToken = null;
+  image._flowGifDrawn = false;
+  image.onload = null;
+  image.onerror = null;
+  image.removeAttribute("src");
+  image.style.visibility = "hidden";
+  image.style.transform = "translate3d(-10000px, -10000px, 0)";
+  image.remove();
+  flow.gifPool.push(image);
+}
+
+function positionFlowGifImage(image, placement, zoom) {
+  const inset = CONFIG.flowBlockPadding + CONFIG.flowBorderWidth;
+  const contentWidth = placement.item.width - inset * 2;
+  const contentHeight = placement.item.height - inset * 2;
+  const width = contentWidth * zoom;
+  const height = contentHeight * zoom;
+  if (image._flowGifWidth !== width || image._flowGifHeight !== height) {
+    image._flowGifWidth = width;
+    image._flowGifHeight = height;
+    image.style.width = `${width}px`;
+    image.style.height = `${height}px`;
+  }
+  image.style.transform = `translate3d(${(placement.x + inset) * zoom}px, ${(placement.y + inset) * zoom}px, 0)`;
+}
+
+function syncFlowGifOverlays(placements, drawKeys = new Set()) {
+  const flow = STATE.flow;
+  if (!flow?.gifLayer) {
+    return;
+  }
+
+  const desiredKeys = new Set();
+  const gifPlacements = [];
+  placements.forEach((placement) => {
+    const version = getFlowGifVersion(placement.item.block);
+    if (version) {
+      desiredKeys.add(placement.key);
+      gifPlacements.push({ placement, version });
+    }
+  });
+
+  flow.gifVisible.forEach((image, key) => {
+    if (!desiredKeys.has(key)) {
+      releaseFlowGifImage(key, image);
+    }
+  });
+
+  gifPlacements.forEach(({ placement, version }) => {
+    let image = flow.gifVisible.get(placement.key);
+    if (!image) {
+      image = acquireFlowGifImage(placement, version);
+    } else if (image._flowGifSource !== version.url) {
+      bindFlowGifImage(image, placement, version);
+    }
+    image._flowGifDrawn = drawKeys.has(placement.key);
+    positionFlowGifImage(image, placement, flow.zoom || 1);
+  });
 }
 
 function acquireFlowBlockElement(block, key) {
@@ -2596,6 +2908,7 @@ function enterFlowMode() {
   document.body.classList.add("flow-mode");
 
   const canvas = createFlowCanvas();
+  const gifLayer = createFlowGifLayer();
   const savedOffset = loadSavedFlowOffset();
 
   STATE.flow = {
@@ -2607,10 +2920,17 @@ function enterFlowMode() {
     surface: null,
     canvas,
     ctx: canvas.getContext("2d", { alpha: true }),
+    gifLayer,
+    gifVisible: new Map(),
+    gifPool: [],
     visible: new Map(),
     pool: [],
     imageCache: new Map(),
+    activeImageUrls: new Set(),
+    drawImageUrls: new Set(),
     textCache: new Map(),
+    lineCache: new Map(),
+    theme: null,
     hitRegions: [],
     isDragging: false,
     dragPointerId: null,
@@ -2665,7 +2985,9 @@ function exitFlowMode(renderBlocksAfter = true) {
   document.removeEventListener("pointerup", endFlowPointerDrag);
   document.removeEventListener("pointercancel", endFlowPointerDrag);
   clearFlowInstances();
+  clearFlowGifInstances();
   removeFlowSurface();
+  removeFlowGifLayer();
   removeFlowCanvas();
   STATE.flow = null;
   document.body.classList.remove("flow-mode", "flow-dragging");
@@ -2818,6 +3140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentTheme === "system") {
       updatePWAThemeColors("system");
       if (STATE.layoutMode === "flow") {
+        STATE.flow.theme = null;
         requestFlowRender();
       }
     }
