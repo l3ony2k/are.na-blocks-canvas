@@ -361,6 +361,79 @@ function getVisibilityClass(visibility) {
   );
 }
 
+function getChannelInputStatusClass(visibility) {
+  return (
+    {
+      public: "channel-status-public",
+      private: "channel-status-private",
+      closed: "channel-status-closed",
+    }[visibility] || ""
+  );
+}
+
+function updateChannelInputDisplay() {
+  const group = document.getElementById("channel-input-group");
+  const input = document.getElementById("channel-slug-input");
+  const title = document.getElementById("channel-title-name");
+  const meta = document.getElementById("channel-title-meta");
+  if (!group || !input || !title || !meta) {
+    return;
+  }
+
+  const slug = STATE.channelSlugs[0] || CONFIG.defaultChannel;
+  const info = STATE.currentChannelInfo;
+  input.value = slug;
+  title.textContent = info?.title || slug;
+
+  let metaParts = [];
+  if (slug.startsWith("@")) {
+    metaParts = [`${STATE.allFetchedBlocks.length} channels`, slug];
+  } else if (slug.startsWith("!")) {
+    metaParts = [`${STATE.allFetchedBlocks.length} items`, "personal feed"];
+  } else if (info) {
+    if (info.counts?.contents != null) {
+      metaParts.push(`${info.counts.contents} blocks`);
+    }
+    metaParts.push(
+      { public: "Open", private: "Private", closed: "Closed" }[
+        info.visibility
+      ] || "Channel",
+    );
+    if (info.owner?.name) {
+      metaParts.push(`by ${info.owner.name}`);
+    }
+  } else {
+    metaParts = [slug, "loading..."];
+  }
+  meta.textContent = metaParts.filter(Boolean).join(" · ");
+
+  group.classList.remove(
+    "channel-status-public",
+    "channel-status-private",
+    "channel-status-closed",
+  );
+  const statusClass = getChannelInputStatusClass(info?.visibility);
+  if (statusClass) {
+    group.classList.add(statusClass);
+  }
+}
+
+function activateChannelInput() {
+  const group = document.getElementById("channel-input-group");
+  const input = document.getElementById("channel-slug-input");
+  group.classList.add("is-active");
+  input.value = STATE.channelSlugs[0] || "";
+  input.focus();
+  input.select();
+}
+
+function deactivateChannelInput() {
+  document
+    .getElementById("channel-input-group")
+    ?.classList.remove("is-active");
+  updateChannelInputDisplay();
+}
+
 // Each detail render gets a unique token object; async fetches bail out when
 // the active token no longer matches, so a stale response can never write
 // into a newer view. Panel-stack restores reinstate the saved token, which
@@ -557,6 +630,40 @@ function setupCommentsSection(block, requestToken) {
   const pager = { page: 0, meta: null, loading: false };
   let loadMoreButton = null;
 
+  function bindCommentMentionLinks(body) {
+    body.querySelectorAll("a[href]").forEach((link) => {
+      if (!link.textContent.trim().startsWith("@")) {
+        return;
+      }
+
+      let url;
+      try {
+        url = new URL(link.getAttribute("href"), window.location.origin);
+      } catch (error) {
+        return;
+      }
+
+      if (
+        url.origin !== window.location.origin &&
+        !["are.na", "www.are.na"].includes(url.hostname)
+      ) {
+        return;
+      }
+
+      const match = url.pathname.match(/^\/([^/]+)\/?$/);
+      if (!match) {
+        return;
+      }
+
+      const userSlug = decodeURIComponent(match[1]);
+      link.href = `#@${userSlug}`;
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        previewUser(userSlug, { stacked: true });
+      });
+    });
+  }
+
   function appendComments(comments) {
     comments.forEach((comment) => {
       const row = document.createElement("div");
@@ -593,6 +700,7 @@ function setupCommentsSection(block, requestToken) {
       body.className = "comment-body";
       if (comment.bodyHtml) {
         body.innerHTML = comment.bodyHtml;
+        bindCommentMentionLinks(body);
       } else {
         body.textContent = comment.bodyPlain;
       }
@@ -663,9 +771,20 @@ function setupCommentsSection(block, requestToken) {
 // "Connect" action: a button in the block or channel detail that opens a
 // searchable picker of your channels as a stacked panel. Requires login
 // with a write-scope token; read-only tokens get a clear explanation.
-function setupConnectSection(item, requestToken) {
+function setupConnectSection(item, requestToken, options = {}) {
   const metaContainer = document.getElementById("detail-view-meta");
   const channelActionRow = document.getElementById("channel-detail-actions");
+  const sourceUrl = options.sourceUrl || null;
+
+  const sourceButton = sourceUrl ? document.createElement("a") : null;
+  if (sourceButton) {
+    sourceButton.className =
+      "detail-action-button detail-action-primary detail-source-button";
+    sourceButton.href = sourceUrl;
+    sourceButton.target = "_blank";
+    sourceButton.rel = "noopener noreferrer";
+    sourceButton.textContent = "↗ View Source";
+  }
 
   const button = document.createElement("button");
   button.type = "button";
@@ -684,10 +803,17 @@ function setupConnectSection(item, requestToken) {
   });
 
   if (channelActionRow) {
+    if (sourceButton) {
+      channelActionRow.appendChild(sourceButton);
+    }
     channelActionRow.appendChild(button);
   } else {
     const slot = document.createElement("div");
-    slot.className = "meta-item meta-wide connect-slot";
+    slot.className =
+      "meta-item meta-wide connect-slot detail-actions-slot";
+    if (sourceButton) {
+      slot.appendChild(sourceButton);
+    }
     slot.appendChild(button);
     metaContainer.appendChild(slot);
   }
@@ -1079,9 +1205,14 @@ function showAboutView() {
       <strong>Version:</strong> ${CONFIG.version}
     </div>
     <div class="meta-item">
-      <strong>Created by</strong> <a href="https://www.are.na/lok" target="_blank">lok ✶</a> with love
+      <strong>Created by</strong> <a href="#@lok" data-app-user="lok">lok ✶</a> with love
     </div>
   `;
+
+  detailMeta.querySelector('[data-app-user="lok"]')?.addEventListener("click", (event) => {
+    event.preventDefault();
+    previewUser("lok", { stacked: true });
+  });
 
   arenaLink.href = "https://www.are.na/lok";
   detailView.style.display = "flex";
@@ -1262,7 +1393,9 @@ async function showHistoryView() {
 
 function initHeaderBar() {
   const slugInput = document.getElementById("channel-slug-input");
-  slugInput.value = STATE.channelSlugs[0];
+  const titleDisplay = document.getElementById("channel-title-display");
+  updateChannelInputDisplay();
+  titleDisplay.addEventListener("click", activateChannelInput);
   document.getElementById("goto-button").addEventListener("click", handleGoButtonClick);
   slugInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -1321,8 +1454,13 @@ function initHeaderBar() {
 }
 
 function handleGoButtonClick() {
-  const newSlug = document.getElementById("channel-slug-input").value.trim();
+  const input = document.getElementById("channel-slug-input");
+  const newSlug = input.value.trim();
   if (newSlug) {
+    if (typeof hideChannelDropdown === "function") {
+      hideChannelDropdown();
+    }
+    input.blur();
     router.navigate(newSlug, true, true);
   }
 }

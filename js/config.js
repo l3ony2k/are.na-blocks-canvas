@@ -36,9 +36,10 @@ const CONFIG = {
   connectionsPerPage: 24,
   commentsPerPage: 24,
   myChannelsPerPage: 100,
+  recentChannelsLimit: 100,
   myChannelsCacheAge: 5 * 60 * 1000,
   userViewMaxPages: 10,
-  version: '4.3.0' // Stacked user previews and unified channel detail actions
+  version: '4.4.0' // Source actions, recent-channel search, and channel title bar
 };
 
 // Helper function to detect mobile devices
@@ -65,6 +66,7 @@ const STATE = {
   currentUser: null,
   myChannels: null,
   followingChannels: null,
+  recentChannels: null,
   activeDetailToken: null,
   detailStack: []
 };

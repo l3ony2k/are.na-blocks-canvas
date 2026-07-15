@@ -44,6 +44,10 @@ class Router {
 
       await updateChannel(slug, forceRefresh);
 
+      if (typeof updateChannelInputDisplay === 'function') {
+        updateChannelInputDisplay();
+      }
+
       // Special views (@user, !feed) have no channel behind them; the view
       // loader fills STATE.currentChannelInfo itself.
       if (slug.startsWith('@') || slug.startsWith('!')) {
@@ -57,7 +61,16 @@ class Router {
       } else {
         const channelInfo = await fetchChannelInfo(slug);
         if (channelInfo) {
-          await arenaDB.addToHistory(slug, channelInfo.title);
+          STATE.currentChannelInfo = channelInfo;
+          document.title = `${channelInfo.title || slug} | are.na blocks canvas`;
+          if (typeof updateChannelInputDisplay === 'function') {
+            updateChannelInputDisplay();
+          }
+          await arenaDB.addToHistory(slug, channelInfo.title, channelInfo);
+          STATE.recentChannels = null;
+          if (typeof loadRecentChannels === 'function') {
+            loadRecentChannels(true).catch(() => {});
+          }
           setTimeout(() => {
             document.getElementById('loading-container').style.display = 'none';
             document.getElementById('log-output').style.display = 'none';
@@ -82,4 +95,4 @@ class Router {
 }
 
 // Global routing instance
-const router = new Router(); 
+const router = new Router();

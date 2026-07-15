@@ -732,6 +732,24 @@ function appendDetailImage(container, block) {
   }
 }
 
+function getBlockSourceActionUrl(block) {
+  if (block.kind === "image" && block.imageVersions?.original?.url) {
+    return block.imageVersions.original.url;
+  }
+
+  if (block.kind === "attachment") {
+    const attachmentUrl =
+      block.attachment?.url ||
+      block.attachment?.src ||
+      block.attachment?.file?.url;
+    if (attachmentUrl) {
+      return attachmentUrl;
+    }
+  }
+
+  return block.source?.url || null;
+}
+
 function renderNonChannelDetail(block) {
   const detailContent = document.getElementById("detail-view-content");
   const arenaLinkElement = document.getElementById("detail-view-arena-link");
@@ -814,7 +832,9 @@ function renderNonChannelDetail(block) {
 
   setupConnectionsSection(block, requestToken);
   setupCommentsSection(block, requestToken);
-  setupConnectSection(block, requestToken);
+  setupConnectSection(block, requestToken, {
+    sourceUrl: getBlockSourceActionUrl(block),
+  });
 }
 
 async function showDetailView(event) {

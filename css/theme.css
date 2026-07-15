@@ -22,6 +22,7 @@
   --vis-public-color: #17ac10;
   --vis-private-color: #c32222;
   --vis-closed-color: #333;
+  --focus-color: #000;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -50,6 +51,7 @@
     --vis-public-color: #5fd457;
     --vis-private-color: #ff7066;
     --vis-closed-color: #f0f0f0;
+    --focus-color: #fff;
   }
 }
 
@@ -77,4 +79,5 @@
   --vis-public-color: #5fd457;
   --vis-private-color: #ff7066;
   --vis-closed-color: #f0f0f0;
+  --focus-color: #fff;
 }

@@ -483,6 +483,45 @@ function openLoginDialog() {
 // My channels + following dropdown (search box)
 // ---------------------------------------------------------------------------
 
+async function loadRecentChannels(force = false) {
+  if (!force && STATE.recentChannels) {
+    return STATE.recentChannels;
+  }
+
+  try {
+    const entries = await arenaDB.getHistory(CONFIG.recentChannelsLimit);
+    STATE.recentChannels = {
+      items: entries
+        .filter(
+          (entry) =>
+            entry.slug &&
+            !entry.slug.startsWith("@") &&
+            !entry.slug.startsWith("!"),
+        )
+        .map((entry) => ({
+          slug: entry.slug,
+          title: entry.title,
+          visibility: entry.visibility,
+          counts: entry.counts,
+          owner: entry.owner,
+          updatedAt: entry.updatedAt,
+          visitedAt: entry.timestamp,
+        })),
+      meta: null,
+      page: 1,
+      fetchedAt: Date.now(),
+      loading: false,
+      promise: null,
+    };
+  } catch (error) {
+    console.error("Failed to load recent channels:", error);
+    STATE.recentChannels = { ...makeChannelCache(), fetchedAt: Date.now() };
+  }
+
+  renderChannelDropdown();
+  return STATE.recentChannels;
+}
+
 function sortChannelsByUpdated(items) {
   items.sort((left, right) =>
     String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")),
@@ -604,27 +643,37 @@ function initChannelDropdown() {
   });
 
   input.addEventListener("focus", () => {
-    if (!isLoggedIn()) {
-      return;
-    }
+    document.getElementById("channel-input-group").classList.add("is-active");
     // The input still holds the current channel's slug; don't let it filter
     // the list until the user actually types. Select it so typing replaces.
     STATE._dropdownFilterActive = false;
     input.select();
-    loadMyChannels().catch(() => {});
-    loadFollowingChannels().catch(() => {});
+    loadRecentChannels().catch(() => {});
+    if (isLoggedIn()) {
+      loadMyChannels().catch(() => {});
+      loadFollowingChannels().catch(() => {});
+    }
     renderChannelDropdown();
     showChannelDropdown();
   });
 
   input.addEventListener("input", () => {
-    if (isLoggedIn() && isChannelDropdownVisible()) {
+    if (isChannelDropdownVisible()) {
       STATE._dropdownFilterActive = true;
       renderChannelDropdown();
     }
   });
 
-  input.addEventListener("blur", hideChannelDropdown);
+  input.addEventListener("blur", () => {
+    hideChannelDropdown();
+    // Let a GO-button click read the draft before the title bar restores the
+    // current channel value.
+    setTimeout(() => {
+      if (document.activeElement !== input) {
+        deactivateChannelInput();
+      }
+    }, 0);
+  });
   input.addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       if (isChannelDropdownVisible()) {
@@ -656,9 +705,7 @@ function hideChannelDropdown() {
 }
 
 function openMyChannelsDropdown() {
-  const input = document.getElementById("channel-slug-input");
-  input.focus();
-  input.select();
+  activateChannelInput();
 }
 
 function moveDropdownSelection(delta) {
@@ -704,7 +751,14 @@ function filterChannels(items, filter) {
   );
 }
 
-function renderDropdownGroup(dropdown, label, cache, filter, loadMore) {
+function renderDropdownGroup(
+  dropdown,
+  label,
+  cache,
+  filter,
+  loadMore,
+  options = {},
+) {
   const header = document.createElement("div");
   header.className = "channel-dropdown-header";
   header.textContent = label;
@@ -715,10 +769,16 @@ function renderDropdownGroup(dropdown, label, cache, filter, loadMore) {
     return;
   }
 
-  const filtered = filterChannels(cache.items, filter);
+  const filtered = filterChannels(cache.items, filter).filter(
+    (channel) =>
+      !options.excludeCurrent ||
+      String(channel.slug || channel.id) !== String(STATE.channelSlugs[0]),
+  );
   if (filtered.length === 0) {
     dropdown.appendChild(
-      makeDropdownHint(filter ? "no matches" : "nothing here yet"),
+      makeDropdownHint(
+        filter ? "no matches" : options.emptyText || "nothing here yet",
+      ),
     );
   }
 
@@ -738,8 +798,14 @@ function renderDropdownGroup(dropdown, label, cache, filter, loadMore) {
 
     const count = document.createElement("span");
     count.className = "channel-dropdown-count";
-    count.textContent =
-      channel.counts?.contents != null ? String(channel.counts.contents) : "";
+    const countParts = [];
+    if (channel.counts?.contents != null) {
+      countParts.push(`${channel.counts.contents} blocks`);
+    }
+    if (options.showVisitedAt && channel.visitedAt) {
+      countParts.push(formatRelativeTime(channel.visitedAt));
+    }
+    count.textContent = countParts.join(" · ");
 
     row.appendChild(title);
     row.appendChild(count);
@@ -751,7 +817,7 @@ function renderDropdownGroup(dropdown, label, cache, filter, loadMore) {
     dropdown.appendChild(row);
   });
 
-  if (cache.meta?.has_more_pages) {
+  if (cache.meta?.has_more_pages && typeof loadMore === "function") {
     const loadMoreButton = document.createElement("button");
     loadMoreButton.type = "button";
     loadMoreButton.className = "channel-dropdown-load-more";
@@ -769,35 +835,55 @@ function renderChannelDropdown() {
   dropdown.replaceChildren();
   STATE._dropdownActiveIndex = -1;
 
-  if (!isLoggedIn()) {
-    return;
-  }
-
   const input = document.getElementById("channel-slug-input");
   const filter = STATE._dropdownFilterActive
     ? input.value.trim().toLowerCase()
     : "";
   const userRef = STATE.currentUser?.slug || STATE.currentUser?.id;
 
-  renderDropdownGroup(dropdown, "your channels", STATE.myChannels, filter, () =>
-    loadMoreChannelGroup("myChannels", (page) =>
-      arenaAPI.getUserChannelsPage(userRef, page, CONFIG.myChannelsPerPage),
-    ),
-  );
+  if (isLoggedIn()) {
+    renderDropdownGroup(
+      dropdown,
+      "your channels",
+      STATE.myChannels,
+      filter,
+      () =>
+        loadMoreChannelGroup("myChannels", (page) =>
+          arenaAPI.getUserChannelsPage(
+            userRef,
+            page,
+            CONFIG.myChannelsPerPage,
+          ),
+        ),
+    );
+
+    renderDropdownGroup(
+      dropdown,
+      "following",
+      STATE.followingChannels,
+      filter,
+      () =>
+        loadMoreChannelGroup("followingChannels", (page) =>
+          arenaAPI.getUserFollowingChannelsPage(
+            userRef,
+            page,
+            CONFIG.myChannelsPerPage,
+          ),
+        ),
+    );
+  }
 
   renderDropdownGroup(
     dropdown,
-    "following",
-    STATE.followingChannels,
+    "recent",
+    STATE.recentChannels,
     filter,
-    () =>
-      loadMoreChannelGroup("followingChannels", (page) =>
-        arenaAPI.getUserFollowingChannelsPage(
-          userRef,
-          page,
-          CONFIG.myChannelsPerPage,
-        ),
-      ),
+    null,
+    {
+      emptyText: "no recently surfed channels",
+      showVisitedAt: true,
+      excludeCurrent: true,
+    },
   );
 }
 

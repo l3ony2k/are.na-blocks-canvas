@@ -238,6 +238,68 @@
     display: flex;
     flex-grow: 1;
     position: relative;
+    min-width: 0;
+}
+
+#channel-title-display {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    padding: 2px 7px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    background-color: var(--block-bg);
+    border: 1px solid var(--block-border);
+    border-right: none;
+    color: var(--text-color);
+    font: inherit;
+    text-align: left;
+    cursor: text;
+}
+
+#channel-title-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: bold;
+}
+
+#channel-title-meta {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    opacity: 0.65;
+}
+
+#channel-title-meta::before {
+    content: "·";
+    margin-right: 8px;
+}
+
+#channel-input-group.is-active #channel-title-display {
+    display: none;
+}
+
+#channel-input-group:not(.is-active) #channel-slug-input {
+    display: none;
+}
+
+#channel-input-group.channel-status-public #channel-title-display,
+#channel-input-group.channel-status-public #channel-slug-input {
+    border-color: color-mix(in srgb, var(--vis-public-color) 55%, transparent);
+    color: color-mix(in srgb, var(--vis-public-color) 70%, var(--text-color));
+}
+
+#channel-input-group.channel-status-private #channel-title-display,
+#channel-input-group.channel-status-private #channel-slug-input {
+    border-color: color-mix(in srgb, var(--vis-private-color) 55%, transparent);
+    color: color-mix(in srgb, var(--vis-private-color) 70%, var(--text-color));
 }
 
 /* My-channels dropdown under the search input */
@@ -826,8 +888,17 @@
     font-weight: bold;
 }
 
+.detail-actions-slot a.detail-action-primary,
+.detail-actions-slot a.detail-action-primary:visited {
+    color: var(--detail-bg);
+}
+
 .detail-action-primary:hover {
     opacity: 0.82;
+}
+
+a.detail-action-button:hover {
+    text-decoration: none;
 }
 
 .detail-action-secondary {
@@ -841,8 +912,15 @@
 }
 
 .detail-action-button:focus-visible {
-    outline: 2px solid var(--link-color);
-    outline-offset: 2px;
+    outline: 2px solid var(--focus-color);
+    outline-offset: -2px;
+}
+
+.detail-actions-slot {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 /* Searchable list: sticky search on top, flush table-like rows */
@@ -1092,6 +1170,15 @@
         padding: 0 8px;
         flex: 1;
         margin: 0;
+    }
+
+    #channel-title-display {
+        height: 32px;
+        padding: 3px 8px;
+    }
+
+    #channel-title-meta {
+        display: none;
     }
 
     #goto-button {

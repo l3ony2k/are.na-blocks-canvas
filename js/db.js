@@ -149,7 +149,7 @@ class ArenaDB {
     });
   }
 
-  async addToHistory(slug, title) {
+  async addToHistory(slug, title, channel = null) {
     await this.ready;
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction('history', 'readwrite');
@@ -157,6 +157,10 @@ class ArenaDB {
       const request = store.add({
         slug,
         title,
+        visibility: channel?.visibility || null,
+        counts: channel?.counts || null,
+        owner: channel?.owner || null,
+        updatedAt: channel?.updatedAt || null,
         timestamp: Date.now()
       });
       

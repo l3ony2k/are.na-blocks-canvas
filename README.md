@@ -10,7 +10,9 @@ The app uses public browser-side requests against the Are.na API v3 by default. 
 - Drag and drop functionality
 - Visual organization of blocks
 - Real-time updates with Are.na API v3
-- Log in with a personal access token to browse your own and followed channels from the search box (color-coded by visibility)
+- Browse recently surfed channels from the search box; log in to add your own and followed channels (all color-coded by visibility)
+- The channel bar shows the channel title, block count, owner, and open / closed / private status until activated for slug entry
+- Open a block's original source directly from its detail view
 - Block connections and comments: see every channel a block appears in and surf onward opened channels stack like windows so you never lose your place
 - Connect blocks to your own channels (write-scope token) with undo
 - Browse any user's channels as a canvas (`@username`), your feed, and random surf
