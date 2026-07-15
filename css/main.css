@@ -335,10 +335,11 @@ body.flow-dragging #flow-gif-layer {
     background-color: var(--block-bg);
 }
 
-/* Go to Channel shares .detail-action-button styling; this only keeps it
-   from stretching inside the flex column. */
-#channel-goto-button {
-    align-self: flex-start;
+#channel-detail-actions {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 #channel-description {

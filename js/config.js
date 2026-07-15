@@ -38,7 +38,7 @@ const CONFIG = {
   myChannelsPerPage: 100,
   myChannelsCacheAge: 5 * 60 * 1000,
   userViewMaxPages: 10,
-  version: '4.2.1' // Channel blocks colored by visibility everywhere, are.na glyph on flow channel blocks
+  version: '4.3.0' // Stacked user previews and unified channel detail actions
 };
 
 // Helper function to detect mobile devices

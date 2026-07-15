@@ -782,7 +782,6 @@
 #user-detail-container {
     display: flex;
     gap: 20px;
-    padding: 20px;
     align-items: flex-start;
 }
 
@@ -799,19 +798,51 @@
     line-height: 1.5;
 }
 
-/* Action button inside detail meta (e.g. connect to channel) */
+#user-detail-info .detail-action-button {
+    margin-top: 12px;
+}
+
+/* Shared detail actions. Navigation is visually primary; collection actions
+   stay quieter in the meta footer; external destinations remain link-like. */
 .detail-action-button {
-    padding: 6px 12px;
-    background-color: var(--button-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 34px;
+    padding: 8px 14px;
     border: 1px solid var(--block-border);
-    color: var(--text-color);
     font-family: inherit;
-    font-size: 12px;
+    font-size: 13px;
+    line-height: 1.2;
+    text-decoration: none;
     cursor: pointer;
 }
 
-.detail-action-button:hover {
+.detail-action-primary {
+    background-color: var(--text-color);
+    border-color: var(--text-color);
+    color: var(--detail-bg);
+    font-weight: bold;
+}
+
+.detail-action-primary:hover {
+    opacity: 0.82;
+}
+
+.detail-action-secondary {
+    background-color: var(--button-bg);
+    color: var(--text-color);
+    font-weight: normal;
+}
+
+.detail-action-secondary:hover {
     background-color: var(--button-hover);
+}
+
+.detail-action-button:focus-visible {
+    outline: 2px solid var(--link-color);
+    outline-offset: 2px;
 }
 
 /* Searchable list: sticky search on top, flush table-like rows */

@@ -735,11 +735,11 @@ function appendDetailImage(container, block) {
 function renderNonChannelDetail(block) {
   const detailContent = document.getElementById("detail-view-content");
   const arenaLinkElement = document.getElementById("detail-view-arena-link");
+  const arenaUrl = block.arenaUrl || `https://www.are.na/block/${block.id}`;
 
   const requestToken = beginDetailRequest();
   resetDetailPanels();
-  arenaLinkElement.href =
-    block.arenaUrl || `https://www.are.na/block/${block.id}`;
+  arenaLinkElement.href = arenaUrl;
 
   if (block.imageVersions) {
     appendDetailImage(detailContent, block);
@@ -766,8 +766,9 @@ function renderNonChannelDetail(block) {
   );
 
   if (block.owner?.name && block.owner.type === "User" && block.owner.slug) {
-    addMetaItem("By", block.owner.name, `#@${block.owner.slug}`, false, "", {
-      internal: true,
+    addMetaItem("By", block.owner.name, null, false, "", {
+      previewHref: `#@${block.owner.slug}`,
+      onSelect: () => previewUser(block.owner.slug, { stacked: true }),
     });
   }
 
@@ -780,15 +781,17 @@ function renderNonChannelDetail(block) {
   }
 
   if (block.connection?.connectedBy?.name) {
-    // In-app user browsing; the router picks up the #@slug hash.
     if (block.connection.connectedBy.slug) {
       addMetaItem(
         "Connected By",
         block.connection.connectedBy.name,
-        `#@${block.connection.connectedBy.slug}`,
+        null,
         false,
         "",
-        { internal: true },
+        {
+          previewHref: `#@${block.connection.connectedBy.slug}`,
+          onSelect: () => previewUser(block.connection.connectedBy.slug, { stacked: true }),
+        },
       );
     } else {
       addMetaItem(
@@ -804,7 +807,7 @@ function renderNonChannelDetail(block) {
     addMetaItem(
       "Source",
       block.source.title || block.source.url,
-      block.source.url,
+      block.source.url === arenaUrl ? null : block.source.url,
       false,
     );
   }
@@ -844,14 +847,9 @@ async function showDetailView(event) {
   document.getElementById("detail-view").style.display = "flex";
 
   if (block.kind === "channel") {
-    await showChannelDetailBySlug(block.slug, {
+    await previewChannel(block.slug, {
       title: getBlockDisplayTitle(block),
       contextItem: block,
-      primaryActionLabel: "Go to Channel",
-      primaryAction: () => {
-        closeDetailView();
-        router.navigate(block.slug);
-      },
       arenaUrl: block.arenaUrl,
     });
     return;

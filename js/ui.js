@@ -253,15 +253,22 @@ function addMetaItem(label, value, linkHref, isHTML = false, valueClassName = ""
     contentDiv.innerHTML = value;
     item.appendChild(contentDiv);
   } else {
-    if (linkHref) {
+    if (typeof options.onSelect === "function") {
+      const link = document.createElement("a");
+      link.href = options.previewHref || "#";
+      link.textContent = value;
+      if (valueClassName) {
+        link.classList.add(valueClassName);
+      }
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        options.onSelect();
+      });
+      item.appendChild(link);
+    } else if (linkHref) {
       let a = document.createElement("a");
       a.href = linkHref;
-      if (options.internal) {
-        // In-app hash link (e.g. #@user); let the router take it from here.
-        a.addEventListener("click", () => closeAllDetailViews());
-      } else {
-        a.target = "_blank";
-      }
+      a.target = "_blank";
       a.textContent = value;
       if (valueClassName) {
         a.classList.add(valueClassName);
@@ -278,6 +285,53 @@ function addMetaItem(label, value, linkHref, isHTML = false, valueClassName = ""
   }
   metaContainer.appendChild(item);
   return item;
+}
+
+function navigateToChannel(slug, forceRefresh = false) {
+  if (!slug) {
+    return;
+  }
+  closeAllDetailViews();
+  router.navigate(String(slug), true, forceRefresh);
+}
+
+function navigateToUser(userSlug) {
+  if (!userSlug) {
+    return;
+  }
+  closeAllDetailViews();
+  router.navigate(`@${userSlug}`);
+}
+
+function previewUser(userSlug, options = {}) {
+  if (!userSlug) {
+    return Promise.resolve();
+  }
+  if (options.stacked) {
+    pushDetailView();
+  }
+  return showUserDetail(userSlug);
+}
+
+function previewChannel(slug, options = {}) {
+  if (!slug) {
+    return Promise.resolve();
+  }
+
+  const { stacked = false, ...detailOptions } = options;
+  if (stacked) {
+    pushDetailView();
+  }
+
+  const normalizedSlug = String(slug);
+  const isCurrentChannel = STATE.channelSlugs[0] === normalizedSlug;
+  if (!isCurrentChannel) {
+    detailOptions.primaryActionLabel = "→ Go to Channel";
+    detailOptions.primaryActionKind = "primary";
+    detailOptions.primaryAction = () => navigateToChannel(normalizedSlug);
+  }
+
+  return showChannelDetailBySlug(normalizedSlug, detailOptions);
 }
 
 function resetDetailPanels() {
@@ -411,15 +465,10 @@ async function populateConnectionsSection(slot, status, item, requestToken) {
       row.addEventListener("click", () => {
         // Stack the new channel panel on top of the current detail instead
         // of replacing it, closing it comes right back here.
-        pushDetailView();
-        showChannelDetailBySlug(channel.slug || channel.id, {
+        previewChannel(channel.slug || channel.id, {
+          stacked: true,
           title: channel.title || "Channel",
           contextItem: channel,
-          primaryActionLabel: "Go to Channel",
-          primaryAction: () => {
-            closeAllDetailViews();
-            router.navigate(channel.slug || String(channel.id));
-          },
           arenaUrl: channel.arenaUrl,
         });
       });
@@ -516,21 +565,27 @@ function setupCommentsSection(block, requestToken) {
       const header = document.createElement("div");
       header.className = "comment-header";
 
-      const author = document.createElement("a");
-      author.className = "comment-author";
       if (comment.user?.slug) {
+        const author = document.createElement("a");
         author.href = `#@${comment.user.slug}`;
-        author.addEventListener("click", () => closeAllDetailViews());
+        author.className = "comment-author";
+        author.addEventListener("click", (event) => {
+          event.preventDefault();
+          previewUser(comment.user.slug, { stacked: true });
+        });
+        author.textContent = comment.user.name || "Unknown";
+        header.appendChild(author);
       } else {
-        author.href = "#";
+        const author = document.createElement("span");
+        author.className = "comment-author";
+        author.textContent = comment.user?.name || "Unknown";
+        header.appendChild(author);
       }
-      author.textContent = comment.user?.name || "Unknown";
 
       const time = document.createElement("span");
       time.className = "comment-time";
       time.textContent = comment.createdAt ? formatRelativeTime(comment.createdAt) : "";
 
-      header.appendChild(author);
       header.appendChild(time);
       row.appendChild(header);
 
@@ -609,24 +664,33 @@ function setupCommentsSection(block, requestToken) {
 // searchable picker of your channels as a stacked panel. Requires login
 // with a write-scope token; read-only tokens get a clear explanation.
 function setupConnectSection(item, requestToken) {
-  if (typeof isLoggedIn !== "function" || !isLoggedIn()) {
-    return;
-  }
-
   const metaContainer = document.getElementById("detail-view-meta");
-  const slot = document.createElement("div");
-  slot.className = "meta-item meta-wide connect-slot";
+  const channelActionRow = document.getElementById("channel-detail-actions");
 
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "detail-action-button";
-  button.textContent = "+ Connect to Channel";
+  button.className = "detail-action-button detail-action-secondary detail-connect-button";
+  button.textContent = "+ Connect...";
   button.addEventListener("click", () => {
+    if (typeof isLoggedIn !== "function" || !isLoggedIn()) {
+      if (typeof openLoginDialog === "function") {
+        openLoginDialog();
+      } else {
+        showToast({ message: "Log in to connect this to one of your channels", seconds: 4 });
+      }
+      return;
+    }
     showConnectPickerPanel(item);
   });
 
-  slot.appendChild(button);
-  metaContainer.appendChild(slot);
+  if (channelActionRow) {
+    channelActionRow.appendChild(button);
+  } else {
+    const slot = document.createElement("div");
+    slot.className = "meta-item meta-wide connect-slot";
+    slot.appendChild(button);
+    metaContainer.appendChild(slot);
+  }
 }
 
 // --- Searchable list --------------------------------------------------------
@@ -872,6 +936,9 @@ function renderChannelDetailContent(channelData, followerCount, options = {}) {
   const textInfo = document.createElement("div");
   textInfo.id = "channel-text-info";
 
+  const actionRow = document.createElement("div");
+  actionRow.id = "channel-detail-actions";
+
   if (channelData.descriptionHtml) {
     const description = document.createElement("div");
     description.id = "channel-description";
@@ -882,11 +949,13 @@ function renderChannelDetailContent(channelData, followerCount, options = {}) {
   if (options.primaryActionLabel && typeof options.primaryAction === "function") {
     const actionButton = document.createElement("button");
     actionButton.id = "channel-goto-button";
-    actionButton.className = "detail-action-button";
+    actionButton.className = `detail-action-button detail-action-${options.primaryActionKind || "primary"}`;
     actionButton.textContent = options.primaryActionLabel;
     actionButton.addEventListener("click", options.primaryAction);
-    textInfo.appendChild(actionButton);
+    actionRow.appendChild(actionButton);
   }
+
+  textInfo.appendChild(actionRow);
 
   const coverVersion = channelData.coverImageVersions?.display || channelData.coverImageVersions?.large;
   if (coverVersion?.url) {
@@ -910,7 +979,10 @@ function renderChannelDetailContent(channelData, followerCount, options = {}) {
   // block detail views. The author link browses that user inside the app.
   if (channelData.owner?.name) {
     if (channelData.owner.type === "User" && channelData.owner.slug) {
-      addMetaItem("Author", channelData.owner.name, `#@${channelData.owner.slug}`, false, "", { internal: true });
+      addMetaItem("Author", channelData.owner.name, null, false, "", {
+        previewHref: `#@${channelData.owner.slug}`,
+        onSelect: () => previewUser(channelData.owner.slug, { stacked: true }),
+      });
     } else {
       const ownerUrl = channelData.owner.slug ? `https://www.are.na/${channelData.owner.slug}` : null;
       addMetaItem("Author", channelData.owner.name, ownerUrl);
@@ -934,8 +1006,11 @@ function renderChannelDetailContent(channelData, followerCount, options = {}) {
   }
 
   if (options.contextItem?.connection?.connectedBy?.name) {
-    const connectedByUrl = options.contextItem.connection.connectedBy.slug ? `https://www.are.na/${options.contextItem.connection.connectedBy.slug}` : null;
-    addMetaItem("Connected By", options.contextItem.connection.connectedBy.name, connectedByUrl, false);
+    const connectedBy = options.contextItem.connection.connectedBy;
+    addMetaItem("Connected By", connectedBy.name, null, false, "", {
+      previewHref: connectedBy.slug ? `#@${connectedBy.slug}` : null,
+      onSelect: connectedBy.slug ? () => previewUser(connectedBy.slug, { stacked: true }) : null,
+    });
   }
 }
 
@@ -1035,9 +1110,9 @@ function showHelpView() {
       </ul>
       <h2>Blocks</h2>
       <ul>
-        <li>Drag blocks to move them, scroll on a block to rotate it</li>
+        <li>Click a block to bring it to the top, drag it to move it, and scroll on it to rotate it</li>
         <li>Double click a block to open its details</li>
-        <li>Click a channel block to jump into that channel</li>
+        <li>Use → Go to Channel in a channel detail to jump into it</li>
       </ul>
       <h2>Layout modes</h2>
       <ul>
@@ -1071,8 +1146,6 @@ function showHelpView() {
 
 // Detail panel for a user (used as "channel info" of a @user view).
 async function showUserDetail(userSlug) {
-  closeAllDetailViews();
-
   const requestToken = beginDetailRequest();
   const detailView = document.getElementById("detail-view");
   const detailTitle = document.getElementById("detail-view-title");
@@ -1112,6 +1185,16 @@ async function showUserDetail(userSlug) {
       bio.innerHTML = profile.bioHtml;
       info.appendChild(bio);
     }
+
+    const resolvedSlug = profile.slug || userSlug;
+    if (STATE.channelSlugs[0] !== `@${resolvedSlug}`) {
+      const browseButton = document.createElement("button");
+      browseButton.type = "button";
+      browseButton.className = "detail-action-button detail-action-primary";
+      browseButton.textContent = "→ Browse Channels";
+      browseButton.addEventListener("click", () => navigateToUser(resolvedSlug));
+      info.appendChild(browseButton);
+    }
     wrapper.appendChild(info);
     detailContent.appendChild(wrapper);
 
@@ -1127,7 +1210,6 @@ async function showUserDetail(userSlug) {
     if (profile.createdAt) {
       addMetaItem("Joined", new Date(profile.createdAt).toLocaleDateString());
     }
-    addMetaItem("Profile", `are.na/${profile.slug || userSlug}`, `https://www.are.na/${profile.slug || userSlug}`);
   } catch (error) {
     console.error("Error fetching user details:", error);
     if (isDetailTokenActive(requestToken)) {
@@ -3033,6 +3115,7 @@ async function showCurrentChannelDetail() {
   if (!slug) return;
 
   if (slug.startsWith("@")) {
+    closeAllDetailViews();
     await showUserDetail(slug.slice(1));
     return;
   }
@@ -3049,10 +3132,6 @@ async function showCurrentChannelDetail() {
   closeAllDetailViews();
 
   await showChannelDetailBySlug(slug, {
-    primaryActionLabel: "View Channel on Are.na",
-    primaryAction: () => {
-      window.open(`https://www.are.na/channel/${slug}`, "_blank");
-    },
     arenaUrl: `https://www.are.na/channel/${slug}`,
   });
 }
