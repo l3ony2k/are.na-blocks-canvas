@@ -39,7 +39,7 @@ const CONFIG = {
   recentChannelsLimit: 100,
   myChannelsCacheAge: 5 * 60 * 1000,
   userViewMaxPages: 10,
-  version: '4.4.0' // Source actions, recent-channel search, and channel title bar
+  version: '4.5.3' // File grid metadata and inset list refinements
 };
 
 // Helper function to detect mobile devices
@@ -62,6 +62,7 @@ const STATE = {
   lastTouchEnd: 0,
   layoutMode: 'mix',
   flow: null,
+  file: null,
   flowImageMeasurements: {},
   currentUser: null,
   myChannels: null,

@@ -567,9 +567,8 @@ function loadMoreBlocks() {
     return;
   }
 
-  // Flow mode renders from allFetchedBlocks via the virtualized canvas;
-  // DOM batch loading must not run underneath it.
-  if (STATE.layoutMode === "flow") {
+  // Flow and File render from allFetchedBlocks; DOM batch loading must not run underneath them.
+  if (STATE.layoutMode === "flow" || STATE.layoutMode === "file") {
     clearInterval(STATE.loadIntervalId);
     STATE.loadIntervalId = null;
     return;
@@ -845,8 +844,10 @@ async function showDetailView(event) {
   const blockElement = event.currentTarget;
   const blockId = blockElement.dataset.blockId;
 
-  STATE.lastViewedBlockElement = blockElement;
-  blockElement.style.display = "none";
+  if (!blockElement.closest?.("#file-browser")) {
+    STATE.lastViewedBlockElement = blockElement;
+    blockElement.style.display = "none";
+  }
 
   document.querySelectorAll("#detail-view-content img").forEach((img) => {
     if (img.observer) {

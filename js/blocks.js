@@ -136,7 +136,7 @@ function temporaryRaiseBlock(element) {
 }
 
 function commitRaiseBlock(element) {
-  if (STATE.layoutMode === 'flow' || element.dataset.flowInstance) {
+  if (STATE.layoutMode === 'flow' || STATE.layoutMode === 'file' || element.dataset.flowInstance) {
     if (element._raiseTimer) {
       clearTimeout(element._raiseTimer);
       element._raiseTimer = null;
@@ -172,7 +172,7 @@ function handleTouchEnd(event) {
 }
 
 function handleWheelRotation(event) {
-  if (STATE.layoutMode === 'flow') {
+  if (STATE.layoutMode === 'flow' || STATE.layoutMode === 'file') {
     return;
   }
 
@@ -634,6 +634,10 @@ function updateBlockPosition(block, x, y, rotation) {
 }
 
 const handleResize = throttle(() => {
+  if (STATE.layoutMode === 'file') {
+    return;
+  }
+
   if (STATE.layoutMode === 'flow') {
     if (STATE.flow) {
       // The Flow organism is content-sized and locked for this session.

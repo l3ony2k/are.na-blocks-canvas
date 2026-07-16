@@ -216,13 +216,16 @@ function makeSubmenuAction(label, onClick) {
 }
 
 // Submenu row with a right-aligned dim annotation (e.g. relative time).
-function makeSubmenuRow(label, annotation, onClick) {
+function makeSubmenuRow(label, annotation, onClick, labelClassName = "") {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "submenu-row";
 
   const text = document.createElement("span");
   text.className = "submenu-row-label";
+  if (labelClassName) {
+    text.classList.add(labelClassName);
+  }
   text.textContent = label;
 
   const note = document.createElement("span");
@@ -346,6 +349,7 @@ async function populateHistorySubmenu(submenu) {
         closeAppMenu();
         router.navigate(entry.slug);
       },
+      getVisibilityClass(entry.visibility),
     );
     button.title = entry.slug;
     submenu.appendChild(button);

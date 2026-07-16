@@ -41,6 +41,7 @@
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/file.css">
 </head>
 <body>
   <div id="header-bar">
@@ -68,14 +69,16 @@
       <button id="goto-button">GO</button>
       <div id="channel-dropdown"></div>
     </div>
-    <button id="tile-button">mix</button>
+    <button id="tile-button" type="button" aria-haspopup="true" aria-expanded="false">mix</button>
     <button id="theme-toggle">theme</button>
     <button id="more-button">··</button>
     <div id="more-menu">
-      <button id="more-tile-button">mix</button>
+      <button id="more-tile-button" type="button" aria-haspopup="true" aria-expanded="false">mix</button>
       <button id="more-theme-button">theme</button>
     </div>
   </div>
+
+  <div id="layout-mode-menu" role="menu" aria-label="Layout mode"></div>
 
   <div id="loading-container">
     <div id="loading-bar"></div>
@@ -127,6 +130,7 @@
   <script src="js/router.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/blocks.js"></script>
+  <script src="js/file.js"></script>
   <script src="js/account.js"></script>
   <script src="js/main.js"></script>
 </body>

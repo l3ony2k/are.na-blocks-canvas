@@ -1247,8 +1247,10 @@ function showHelpView() {
       </ul>
       <h2>Layout modes</h2>
       <ul>
+        <li>Click the current mode to choose directly between <b>mix</b>, <b>tile</b>, <b>flow</b>, and <b>file</b></li>
         <li><b>mix</b> scatters blocks, <b>tile</b> arranges them in a grid</li>
         <li><b>flow</b> is an endless canvas: drag or scroll to pan, pinch or ctrl/cmd + scroll to zoom</li>
+        <li><b>file</b> is a sortable and filterable file-manager view with grid and detailed list layouts</li>
       </ul>
       <h2>Surfing</h2>
       <ul>
@@ -1381,6 +1383,7 @@ async function showHistoryView() {
   list.setItems(
     entries.map((entry) => ({
       label: entry.title || entry.slug,
+      labelClassName: getVisibilityClass(entry.visibility),
       info: formatRelativeTime(entry.timestamp),
       keywords: `${entry.title || ""} ${entry.slug}`,
       onSelect: () => {
@@ -1412,12 +1415,11 @@ function initHeaderBar() {
     }
   });
 
-  // Initialize layout mode button (label always shows the CURRENT mode)
+  // Initialize layout mode picker (label always shows the current mode).
   const tileButton = document.getElementById("tile-button");
   setLayoutButtonText(getSavedLayoutMode());
-  tileButton.addEventListener("click", () => {
-    cycleLayoutMode();
-  });
+  tileButton.addEventListener("click", (event) => toggleLayoutModeMenu(event.currentTarget));
+  initLayoutModeMenu();
 
   const themeToggle = document.getElementById("theme-toggle");
   const root = document.documentElement;
@@ -1475,18 +1477,89 @@ function setLayoutButtonText(text) {
   if (moreTileButton) {
     moreTileButton.textContent = text;
   }
+  updateLayoutModeMenu(text);
 }
 
-const LAYOUT_MODES = ["mix", "tile", "flow"];
+const LAYOUT_MODES = ["mix", "tile", "flow", "file"];
 
 function getSavedLayoutMode() {
-  const saved = localStorage.getItem("layoutMode");
+  const stored = localStorage.getItem("layoutMode");
+  const saved = stored === "og" ? "file" : stored;
+  if (stored === "og") {
+    localStorage.setItem("layoutMode", "file");
+  }
   return LAYOUT_MODES.includes(saved) ? saved : "mix";
 }
 
-function cycleLayoutMode() {
-  const nextIndex = (LAYOUT_MODES.indexOf(STATE.layoutMode) + 1) % LAYOUT_MODES.length;
-  setLayoutMode(LAYOUT_MODES[nextIndex]);
+function initLayoutModeMenu() {
+  const menu = document.getElementById("layout-mode-menu");
+  if (!menu || menu.dataset.initialized) {
+    return;
+  }
+
+  menu.dataset.initialized = "true";
+  LAYOUT_MODES.forEach((mode) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.mode = mode;
+    button.setAttribute("role", "menuitem");
+    const label = document.createElement("span");
+    label.className = "layout-mode-label";
+    label.textContent = mode;
+    button.appendChild(label);
+    button.addEventListener("click", () => {
+      if (mode !== STATE.layoutMode) {
+        setLayoutMode(mode);
+      }
+      closeLayoutModeMenu();
+    });
+    menu.appendChild(button);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#layout-mode-menu, #tile-button, #more-tile-button")) {
+      closeLayoutModeMenu();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeLayoutModeMenu();
+    }
+  });
+  updateLayoutModeMenu(getSavedLayoutMode());
+}
+
+function toggleLayoutModeMenu(anchor) {
+  const menu = document.getElementById("layout-mode-menu");
+  if (!menu) {
+    return;
+  }
+  const willOpen = !menu.classList.contains("show");
+  closeLayoutModeMenu();
+  if (!willOpen) {
+    return;
+  }
+
+  const rect = anchor.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + 5}px`;
+  menu.style.right = `${Math.max(5, window.innerWidth - rect.right)}px`;
+  menu.classList.add("show");
+  anchor.setAttribute("aria-expanded", "true");
+  updateLayoutModeMenu(STATE.layoutMode);
+}
+
+function closeLayoutModeMenu() {
+  document.getElementById("layout-mode-menu")?.classList.remove("show");
+  document.getElementById("tile-button")?.setAttribute("aria-expanded", "false");
+  document.getElementById("more-tile-button")?.setAttribute("aria-expanded", "false");
+}
+
+function updateLayoutModeMenu(currentMode) {
+  document.querySelectorAll("#layout-mode-menu [data-mode]").forEach((button) => {
+    const isCurrent = button.dataset.mode === currentMode;
+    button.disabled = isCurrent;
+    button.setAttribute("aria-current", isCurrent ? "true" : "false");
+  });
 }
 
 function setLayoutMode(mode, options = {}) {
@@ -1500,19 +1573,30 @@ function setLayoutMode(mode, options = {}) {
     localStorage.setItem("layoutMode", mode);
   }
 
-  if (STATE.layoutMode === "flow") {
-    exitFlowMode();
+  const previousMode = STATE.layoutMode;
+  const needsDomRestore = previousMode === "flow" || previousMode === "file";
+  if (previousMode === "flow") {
+    exitFlowMode(false);
+  } else if (previousMode === "file") {
+    exitFileMode(false);
   }
 
   STATE.layoutMode = mode;
   setLayoutButtonText(mode);
 
-  if (mode === "tile") {
-    tileBlocks();
+  if (mode === "file") {
+    enterFileMode();
   } else if (mode === "flow") {
     enterFlowMode();
   } else {
-    shuffleBlocks();
+    if (needsDomRestore) {
+      renderInitialBlocksForCurrentChannel();
+    }
+    if (mode === "tile") {
+      tileBlocks();
+    } else {
+      shuffleBlocks();
+    }
   }
 }
 
@@ -1526,7 +1610,10 @@ function applySavedLayoutMode() {
     return;
   }
 
-  if (mode === "flow") {
+  if (mode === "file") {
+    STATE.layoutMode = "file";
+    enterFileMode();
+  } else if (mode === "flow") {
     STATE.layoutMode = "flow";
     enterFlowMode();
   } else if (mode === "tile") {
@@ -3242,6 +3329,8 @@ function renderInitialBlocksForCurrentChannel() {
 function resetTileButton() {
   if (STATE.layoutMode === "flow") {
     exitFlowMode(false);
+  } else if (STATE.layoutMode === "file") {
+    exitFileMode(false);
   }
   STATE.layoutMode = "mix";
   setLayoutButtonText(getSavedLayoutMode());
@@ -3288,8 +3377,8 @@ moreButton.addEventListener("click", (e) => {
 
 // Link more menu buttons to original buttons' functionality
 moreTileButton.addEventListener("click", () => {
-  document.getElementById("tile-button").click();
-  moreTileButton.textContent = document.getElementById("tile-button").textContent;
+  toggleLayoutModeMenu(moreTileButton);
+  moreMenu.classList.remove("show");
 });
 
 moreThemeButton.addEventListener("click", () => {

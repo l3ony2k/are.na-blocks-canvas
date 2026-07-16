@@ -17,6 +17,7 @@ The app uses public browser-side requests against the Are.na API v3 by default. 
 - Connect blocks to your own channels (write-scope token) with undo
 - Browse any user's channels as a canvas (`@username`), your feed, and random surf
 - Flow mode: endless canvas with pinch / ctrl+scroll zoom
+- File mode: an Are.na-inspired file-manager view with persisted grid/list layouts, preview sizing, sorting, and multi-type filtering
 - Recently surfed history in the app menu (top-left logo)
 - Responsive design for different screen sizes
 
