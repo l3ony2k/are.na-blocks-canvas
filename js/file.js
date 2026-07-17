@@ -335,6 +335,24 @@ function setFileSort(sort) {
   rebuildFileBrowser();
 }
 
+function cycleFileHeaderSort(sort) {
+  if (!STATE.file || !FILE_SORTS.includes(sort) || sort === "default") return;
+
+  if (STATE.file.sort !== sort) {
+    STATE.file.sort = sort;
+    STATE.file.direction = "asc";
+  } else if (STATE.file.direction === "asc") {
+    STATE.file.direction = "desc";
+  } else {
+    STATE.file.sort = "default";
+    STATE.file.direction = "asc";
+  }
+
+  saveFileSetting("fileSort", STATE.file.sort);
+  saveFileSetting("fileSortDirection", STATE.file.direction);
+  rebuildFileBrowser();
+}
+
 function createFileGridCard(block) {
   const card = document.createElement("article");
   card.className = `file-card file-card-${STATE.file.gridSize}`;
@@ -424,7 +442,7 @@ function createFileTableHeader() {
     const cell = document.createElement("th");
     cell.className = className;
     if (sort) {
-      const button = createFileButton(label, `Sort by ${label}`, () => setFileSort(sort));
+      const button = createFileButton(label, `Sort by ${label}`, () => cycleFileHeaderSort(sort));
       if (STATE.file.sort === sort) {
         button.classList.add("active");
         button.textContent = `${label} ${STATE.file.direction === "asc" ? "↑" : "↓"}`;
