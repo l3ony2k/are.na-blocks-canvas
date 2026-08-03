@@ -39,7 +39,7 @@ const CONFIG = {
   recentChannelsLimit: 100,
   myChannelsCacheAge: 5 * 60 * 1000,
   userViewMaxPages: 10,
-  version: '4.5.3' // File grid metadata and inset list refinements
+  version: '4.5.4' // File grid metadata and inset list refinements
 };
 
 // Helper function to detect mobile devices
