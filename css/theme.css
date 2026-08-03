@@ -2,9 +2,11 @@
   --bg-color: #f0f0f0;
   --text-color: #333;
   --block-bg: #fff;
-  --block-border: #333;
+  --block-border: #333333;
   --header-bg: #f0f0f0;
-  --header-border: #333;
+  --header-border: #333333;
+  --internal-border: #c4c4c4;
+  --internal-border-hover: #8f8f8f;
   --button-bg: #ddd;
   --button-hover: #ccc;
   --detail-bg: #fff;
@@ -33,6 +35,7 @@
     --block-border: #555;
     --header-bg: #1a1a1a;
     --header-border: #444;
+    --internal-border: #444;
     --button-bg: #333;
     --button-hover: #444;
     --detail-bg: #1a1a1a;
@@ -62,6 +65,7 @@
   --block-border: #555;
   --header-bg: #1a1a1a;
   --header-border: #444;
+  --internal-border: #444;
   --button-bg: #333;
   --button-hover: #444;
   --detail-bg: #1a1a1a;

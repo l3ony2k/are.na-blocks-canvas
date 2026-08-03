@@ -344,6 +344,16 @@ body.flow-dragging #flow-gif-layer {
     background-color: var(--block-bg);
 }
 
+:root:not([data-theme="dark"]):not([data-theme="system"]) #channel-cover-image {
+    border-color: var(--internal-border);
+}
+
+@media (prefers-color-scheme: light) {
+    :root[data-theme="system"] #channel-cover-image {
+        border-color: var(--internal-border);
+    }
+}
+
 #channel-detail-actions {
     display: flex;
     align-items: stretch;

@@ -58,7 +58,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   background: var(--header-bg);
-  border-bottom: 1px solid var(--header-border);
+  border-bottom: 1px solid var(--internal-border);
   font-size: 14px;
 }
 
@@ -276,7 +276,7 @@
 .file-card-text {
   padding: 6px 5px 5px;
   background: var(--detail-bg);
-  border-top: 1px solid var(--header-border);
+  border-top: 1px solid var(--internal-border);
 }
 
 .file-item-title {
@@ -349,8 +349,8 @@
   height: var(--file-row-height);
   padding: 0 8px;
   overflow: hidden;
-  border-right: 1px solid var(--header-border);
-  border-bottom: 1px solid var(--header-border);
+  border-right: 1px solid var(--internal-border);
+  border-bottom: 1px solid var(--internal-border);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -472,6 +472,18 @@
   padding: 30px;
   text-align: center;
   opacity: 0.55;
+}
+
+:root:not([data-theme="dark"]):not([data-theme="system"])
+  :is(.file-toolbar button, .file-toolbar select, .file-search) {
+  border-color: var(--internal-border);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"]
+    :is(.file-toolbar button, .file-toolbar select, .file-search) {
+    border-color: var(--internal-border);
+  }
 }
 
 @media (max-width: 768px) {
